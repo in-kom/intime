@@ -9,12 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { format } from "date-fns";
-import { useContext, useState } from "react";
+import { useState, useEffect } from "react";
 import { TagSelector } from "@/components/tags/tag-selector";
-import { AppContext } from "@/contexts/app-context";
+import { useParams } from "react-router-dom";
 
-// Define new Tag interface
+// Define Tag interface
 interface Tag {
   id: string;
   name: string;
@@ -48,29 +47,36 @@ interface TaskFormProps {
 }
 
 export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
-  const { register, handleSubmit, formState: { errors } } = useForm<TaskFormValues>({
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const { projectId = "" } = useParams<{ projectId: string }>();
+
+  const { register, handleSubmit, reset, formState } = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
-    defaultValues: task
-      ? {
-          ...task,
-          dueDate: task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : undefined,
-        }
-      : {
-          title: "",
-          description: "",
-          status: "TODO",
-          priority: "MEDIUM",
-        },
+    defaultValues: {
+      title: task?.title || "",
+      description: task?.description || "",
+      status: task?.status || "TODO",
+      priority: task?.priority || "MEDIUM",
+      dueDate: task?.dueDate || "",
+    },
   });
 
-  const [selectedTags, setSelectedTags] = useState<Tag[]>(task?.tags || []);
-  const { activeCompany } = useContext(AppContext);
+  useEffect(() => {
+    if (open) {
+      reset({
+        title: task?.title || "",
+        description: task?.description || "",
+        status: task?.status || "TODO",
+        priority: task?.priority || "MEDIUM",
+        dueDate: task?.dueDate || "",
+      });
+      setSelectedTags(task?.tags || []);
+    }
+  }, [open, task, reset]);
 
-  const handleFormSubmit = (data: TaskFormValues) => {
-    onSubmit({
-      ...data,
-      tagIds: selectedTags.map(tag => tag.id)
-    });
+  const processSubmit = (values: TaskFormValues) => {
+    const tagIds = selectedTags.map(tag => tag.id);
+    onSubmit({ ...values, tagIds });
     onClose();
   };
 
@@ -78,21 +84,25 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{task ? "Edit Task" : "Create Task"}</DialogTitle>
+          <DialogTitle>
+            {task?.id ? "Edit Task" : "Create Task"}
+          </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(processSubmit)} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="title" className="text-sm font-medium">
-              Title <span className="text-destructive">*</span>
+              Title
             </label>
             <input
               id="title"
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               {...register("title")}
             />
-            {errors.title && (
-              <p className="text-destructive text-xs">{errors.title.message}</p>
+            {formState.errors.title && (
+              <p className="text-sm text-destructive">
+                {formState.errors.title.message}
+              </p>
             )}
           </div>
           
@@ -157,17 +167,11 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
             <label className="text-sm font-medium">
               Tags
             </label>
-            {activeCompany ? (
-              <TagSelector
-                companyId={activeCompany.id}
-                selectedTags={selectedTags}
-                onChange={setSelectedTags}
-              />
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                Select a company to add tags
-              </div>
-            )}
+            <TagSelector
+              projectId={projectId}
+              selectedTags={selectedTags}
+              onChange={setSelectedTags}
+            />
           </div>
           
           <DialogFooter>
@@ -175,7 +179,7 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
               Cancel
             </Button>
             <Button type="submit">
-              {task ? "Update" : "Create"}
+              {task?.id ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </form>

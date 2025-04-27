@@ -4,6 +4,12 @@ import { projectsAPI, tasksAPI } from "@/lib/api";
 import { DatabaseView } from "@/components/database/database-view";
 import { TaskForm } from "@/components/tasks/task-form";
 
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface Task {
   id: string;
   title: string;
@@ -11,6 +17,7 @@ interface Task {
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate?: string;
+  tags?: Tag[];
 }
 
 interface TaskFormData {
@@ -19,6 +26,7 @@ interface TaskFormData {
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate?: string;
+  tagIds?: string[];
 }
 
 export default function DatabasePage() {

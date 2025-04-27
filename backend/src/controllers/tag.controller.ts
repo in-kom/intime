@@ -23,8 +23,9 @@ export const getTags = async (req: Request, res: Response) => {
     throw new AppError('Company not found or you do not have access', 404);
   }
 
+  const { projectId } = req.params;
   const tags = await prisma.tag.findMany({
-    where: { companyId }
+    where: { projectId }
   });
 
   res.status(200).json(tags);
@@ -34,6 +35,7 @@ export const getTags = async (req: Request, res: Response) => {
 export const createTag = async (req: Request, res: Response) => {
   const { companyId } = req.params;
   const { name, color } = req.body;
+  const { projectId } = req.params;
 
   // Check if user has access to company
   const company = await prisma.company.findFirst({
@@ -54,8 +56,91 @@ export const createTag = async (req: Request, res: Response) => {
     data: {
       name,
       color,
-      company: {
-        connect: { id: companyId }
+      project: {
+        connect: { id: projectId }
+      }
+    }
+  });
+
+  res.status(201).json(tag);
+};
+
+// Get all tags for a project
+export const getTagsByProject = async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+
+  // Check if project exists and user has access
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      company: true
+    }
+  });
+
+  if (!project) {
+    throw new AppError('Project not found', 404);
+  }
+
+  // Check if user has access to project's company
+  const company = await prisma.company.findFirst({
+    where: {
+      id: project.companyId,
+      OR: [
+        { ownerId: req.user!.id },
+        { members: { some: { id: req.user!.id } } }
+      ]
+    }
+  });
+
+  if (!company) {
+    throw new AppError('Not authorized to access this project', 403);
+  }
+
+  const tags = await prisma.tag.findMany({
+    where: { projectId }
+  });
+
+  res.status(200).json(tags);
+};
+
+// Create tag for a project
+export const createTagForProject = async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const { name, color } = req.body;
+
+  // Check if project exists and user has access
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      company: true
+    }
+  });
+
+  if (!project) {
+    throw new AppError('Project not found', 404);
+  }
+
+  // Check if user has access to project's company
+  const company = await prisma.company.findFirst({
+    where: {
+      id: project.companyId,
+      OR: [
+        { ownerId: req.user!.id },
+        { members: { some: { id: req.user!.id } } }
+      ]
+    }
+  });
+
+  if (!company) {
+    throw new AppError('Not authorized to access this project', 403);
+  }
+
+  const tag = await prisma.tag.create({
+    data: {
+      name,
+      color,
+      project: {
+        connect: { id: projectId }
       }
     }
   });
@@ -71,7 +156,11 @@ export const updateTag = async (req: Request, res: Response) => {
   const tag = await prisma.tag.findUnique({
     where: { id },
     include: {
-      company: true
+      project: {
+        include: {
+          company: true
+        }
+      }
     }
   });
 
@@ -79,10 +168,10 @@ export const updateTag = async (req: Request, res: Response) => {
     throw new AppError('Tag not found', 404);
   }
 
-  // Check if user has access to tag's company
+  // Check if user has access to tag's project's company
   const company = await prisma.company.findFirst({
     where: {
-      id: tag.companyId,
+      id: tag.project.companyId,
       OR: [
         { ownerId: req.user!.id },
         { members: { some: { id: req.user!.id } } }
@@ -112,7 +201,11 @@ export const deleteTag = async (req: Request, res: Response) => {
   const tag = await prisma.tag.findUnique({
     where: { id },
     include: {
-      company: true
+      project: {
+        include: {
+          company: true
+        }
+      }
     }
   });
 
@@ -120,10 +213,10 @@ export const deleteTag = async (req: Request, res: Response) => {
     throw new AppError('Tag not found', 404);
   }
 
-  // Check if user has access to tag's company
+  // Check if user has access to tag's project's company
   const company = await prisma.company.findFirst({
     where: {
-      id: tag.companyId,
+      id: tag.project.companyId,
       OR: [
         { ownerId: req.user!.id },
         { members: { some: { id: req.user!.id } } }

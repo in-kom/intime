@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { tagsAPI } from "@/lib/api";
-import { AppContext } from "@/contexts/app-context";
 import { TagBadge } from "./tag-badge";
 
 interface Tag {
@@ -20,24 +20,24 @@ interface Tag {
 }
 
 export function TagManagement() {
-  const { activeCompany } = useContext(AppContext);
+  const { projectId } = useParams<{ projectId: string }>();
   const [tags, setTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentTag, setCurrentTag] = useState<Partial<Tag> | null>(null);
 
   useEffect(() => {
-    if (activeCompany) {
+    if (projectId) {
       fetchTags();
     }
-  }, [activeCompany]);
+  }, [projectId]);
 
   const fetchTags = async () => {
-    if (!activeCompany) return;
+    if (!projectId) return;
 
     try {
       setIsLoading(true);
-      const response = await tagsAPI.getAll(activeCompany.id);
+      const response = await tagsAPI.getAll(projectId);
       setTags(response.data);
     } catch (error) {
       console.error("Failed to fetch tags", error);
@@ -76,7 +76,7 @@ export function TagManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!currentTag?.name || !activeCompany) return;
+    if (!currentTag?.name || !projectId) return;
 
     try {
       if (currentTag.id) {
@@ -85,7 +85,7 @@ export function TagManagement() {
           color: currentTag.color,
         });
       } else {
-        await tagsAPI.create(activeCompany.id, {
+        await tagsAPI.create(projectId, {
           name: currentTag.name,
           color: currentTag.color,
         });
@@ -98,10 +98,10 @@ export function TagManagement() {
     }
   };
 
-  if (!activeCompany) {
+  if (!projectId) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        Please select a company to manage tags
+        Please select a project to manage tags
       </div>
     );
   }

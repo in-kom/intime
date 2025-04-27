@@ -28,8 +28,6 @@ model Company {
   owner       User      @relation("CompanyOwner", fields: [ownerId], references: [id])
   members     User[]    @relation("CompanyMembers")
   projects    Project[]
-
-  Tag Tag[]
 }
 
 model Project {
@@ -41,6 +39,7 @@ model Project {
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   tasks       Task[]
+  tags        Tag[]
 }
 
 model Task {
@@ -63,8 +62,8 @@ model Tag {
   color       String   @default("#3b82f6") // Default blue color
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks       Task[]   @relation("TaskToTag")
 }
 

@@ -84,15 +84,11 @@ export const tasksAPI = {
 
 // Tags API
 export const tagsAPI = {
-  getAll: (companyId: string) => api.get(`/tags/company/${companyId}`),
-  create: (
-    companyId: string, 
-    data: { name: string; color?: string }
-  ) => api.post(`/tags/company/${companyId}`, data),
-  update: (
-    id: string, 
-    data: { name?: string; color?: string }
-  ) => api.put(`/tags/${id}`, data),
+  getAll: (projectId: string) => api.get(`/tags/project/${projectId}`),
+  create: (projectId: string, data: { name: string; color?: string }) =>
+    api.post(`/tags/project/${projectId}`, data),
+  update: (id: string, data: { name?: string; color?: string }) =>
+    api.put(`/tags/${id}`, data),
   delete: (id: string) => api.delete(`/tags/${id}`),
 };
 
