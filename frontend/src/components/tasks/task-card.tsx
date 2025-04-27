@@ -1,0 +1,107 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { format } from "date-fns";
+import { 
+  CalendarIcon, 
+  MoreHorizontal,
+  Trash2 
+} from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+
+interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  dueDate?: string;
+}
+
+interface TaskCardProps {
+  task: Task;
+  onEdit: (task: Task) => void;
+  onDelete: (taskId: string) => void;
+}
+
+export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+  };
+
+  const handleEdit = () => {
+    onEdit(task);
+  };
+
+  const priorityColors = {
+    LOW: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    MEDIUM: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    HIGH: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+    URGENT: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="bg-card border border-border rounded-md p-3 mb-2 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex justify-between items-start">
+        <h3 className="font-medium text-sm">{task.title}</h3>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => onDelete(task.id)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      
+      {task.description && (
+        <p className="text-muted-foreground text-sm mt-2">{task.description}</p>
+      )}
+      
+      <div className="flex flex-wrap gap-2 mt-3">
+        <span className={`text-xs px-2 py-1 rounded-full ${priorityColors[task.priority]}`}>
+          {task.priority}
+        </span>
+        
+        {task.dueDate && (
+          <span className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground flex items-center gap-1">
+            <CalendarIcon className="h-3 w-3" />
+            {format(new Date(task.dueDate), "MMM d")}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
