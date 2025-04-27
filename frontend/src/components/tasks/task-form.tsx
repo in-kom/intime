@@ -10,8 +10,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { useContext, useState } from "react";
+import { TagSelector } from "@/components/tags/tag-selector";
+import { AppContext } from "@/contexts/app-context";
 
-// Define form schema with zod
+// Define new Tag interface
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+// Update task schema with zod
 const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
@@ -30,10 +40,11 @@ interface TaskFormProps {
     status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
     priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
     dueDate?: string;
+    tags?: Tag[];
   };
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: TaskFormValues) => void;
+  onSubmit: (values: TaskFormValues & { tagIds?: string[] }) => void;
 }
 
 export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
@@ -52,8 +63,14 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
         },
   });
 
+  const [selectedTags, setSelectedTags] = useState<Tag[]>(task?.tags || []);
+  const { activeCompany } = useContext(AppContext);
+
   const handleFormSubmit = (data: TaskFormValues) => {
-    onSubmit(data);
+    onSubmit({
+      ...data,
+      tagIds: selectedTags.map(tag => tag.id)
+    });
     onClose();
   };
 
@@ -134,6 +151,23 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               {...register("dueDate")}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Tags
+            </label>
+            {activeCompany ? (
+              <TagSelector
+                companyId={activeCompany.id}
+                selectedTags={selectedTags}
+                onChange={setSelectedTags}
+              />
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                Select a company to add tags
+              </div>
+            )}
           </div>
           
           <DialogFooter>

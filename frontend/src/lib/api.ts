@@ -65,6 +65,7 @@ export const tasksAPI = {
       status?: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
       priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
       dueDate?: string;
+      tagIds?: string[];
     }
   ) => api.post(`/tasks/project/${projectId}`, data),
   update: (
@@ -75,9 +76,24 @@ export const tasksAPI = {
       status?: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
       priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
       dueDate?: string;
+      tagIds?: string[];
     }
   ) => api.put(`/tasks/${id}`, data),
   delete: (id: string) => api.delete(`/tasks/${id}`),
+};
+
+// Tags API
+export const tagsAPI = {
+  getAll: (companyId: string) => api.get(`/tags/company/${companyId}`),
+  create: (
+    companyId: string, 
+    data: { name: string; color?: string }
+  ) => api.post(`/tags/company/${companyId}`, data),
+  update: (
+    id: string, 
+    data: { name?: string; color?: string }
+  ) => api.put(`/tags/${id}`, data),
+  delete: (id: string) => api.delete(`/tags/${id}`),
 };
 
 export default api;

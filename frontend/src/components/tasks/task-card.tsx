@@ -13,6 +13,13 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { TagBadge } from "@/components/tags/tag-badge";
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface Task {
   id: string;
@@ -21,6 +28,7 @@ interface Task {
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate?: string;
+  tags?: Tag[];
 }
 
 interface TaskCardProps {
@@ -102,6 +110,14 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
           </span>
         )}
       </div>
+      
+      {task.tags && task.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {task.tags.map(tag => (
+            <TagBadge key={tag.id} tag={tag} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

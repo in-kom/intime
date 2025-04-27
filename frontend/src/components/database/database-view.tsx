@@ -11,6 +11,13 @@ import {
 import { ArrowUpDown, Edit, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { tasksAPI } from "@/lib/api";
+import { TagBadge } from "@/components/tags/tag-badge";
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface Task {
   id: string;
@@ -19,6 +26,7 @@ interface Task {
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate?: string;
+  tags?: Tag[];
 }
 
 interface DatabaseViewProps {
@@ -137,6 +145,23 @@ export function DatabaseView({
     columnHelper.accessor("description", {
       header: "Description",
       cell: info => info.getValue() || "-",
+    }),
+    columnHelper.accessor("tags", {
+      header: "Tags",
+      cell: info => {
+        const tags = info.getValue();
+        return (
+          <div className="flex flex-wrap gap-1">
+            {tags && tags.length > 0 ? (
+              tags.map(tag => (
+                <TagBadge key={tag.id} tag={tag} />
+              ))
+            ) : (
+              "-"
+            )}
+          </div>
+        );
+      },
     }),
     columnHelper.display({
       id: "actions",

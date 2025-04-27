@@ -8,6 +8,7 @@ import { authRouter } from './routes/auth.routes';
 import { companyRouter } from './routes/company.routes';
 import { projectRouter } from './routes/project.routes';
 import { taskRouter } from './routes/task.routes';
+import { tagRouter } from './routes/tag.routes';
 import { errorHandler } from './middleware/error.middleware';
 
 // Load environment variables
@@ -26,6 +27,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/companies', companyRouter);
 app.use('/api/projects', projectRouter);
 app.use('/api/tasks', taskRouter);
+app.use('/api/tags', tagRouter);
 
 // Error handler
 app.use(errorHandler);

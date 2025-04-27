@@ -36,7 +36,10 @@ export const getTasks = async (req: Request, res: Response) => {
   }
 
   const tasks = await prisma.task.findMany({
-    where: { projectId }
+    where: { projectId },
+    include: {
+      tags: true
+    }
   });
 
   res.status(200).json(tasks);
@@ -53,7 +56,8 @@ export const getTask = async (req: Request, res: Response) => {
         include: {
           company: true
         }
-      }
+      },
+      tags: true
     }
   });
 
@@ -82,7 +86,7 @@ export const getTask = async (req: Request, res: Response) => {
 // Create task
 export const createTask = async (req: Request, res: Response) => {
   const { projectId } = req.params;
-  const { title, description, status, priority, dueDate } = req.body;
+  const { title, description, status, priority, dueDate, tagIds } = req.body;
 
   // Check if project exists and user has access
   const project = await prisma.project.findUnique({
@@ -120,7 +124,13 @@ export const createTask = async (req: Request, res: Response) => {
       dueDate: dueDate ? new Date(dueDate) : undefined,
       project: {
         connect: { id: projectId }
-      }
+      },
+      tags: tagIds && tagIds.length > 0 ? {
+        connect: tagIds.map((id: string) => ({ id }))
+      } : undefined
+    },
+    include: {
+      tags: true
     }
   });
 
@@ -130,7 +140,7 @@ export const createTask = async (req: Request, res: Response) => {
 // Update task
 export const updateTask = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { title, description, status, priority, dueDate } = req.body;
+  const { title, description, status, priority, dueDate, tagIds } = req.body;
 
   // Check if task exists and user has access
   const task = await prisma.task.findUnique({
@@ -163,6 +173,12 @@ export const updateTask = async (req: Request, res: Response) => {
     throw new AppError('Not authorized to update this task', 403);
   }
 
+  // Get current task tags for disconnect operation
+  const currentTask = await prisma.task.findUnique({
+    where: { id },
+    include: { tags: true }
+  });
+
   const updatedTask = await prisma.task.update({
     where: { id },
     data: {
@@ -170,7 +186,14 @@ export const updateTask = async (req: Request, res: Response) => {
       description,
       status: status as Status,
       priority: priority as Priority,
-      dueDate: dueDate ? new Date(dueDate) : undefined
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      tags: {
+        disconnect: currentTask?.tags.map(tag => ({ id: tag.id })),
+        connect: tagIds ? tagIds.map((id: string) => ({ id })) : []
+      }
+    },
+    include: {
+      tags: true
     }
   });
 

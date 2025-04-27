@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,14 @@ import {
   Briefcase,
   FolderKanban,
   Database,
+  Building2,
 } from "lucide-react";
+import {
+  Card,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type Company = {
   id: string;
@@ -46,6 +53,10 @@ type Project = {
 export function MainLayout() {
   const { user, logout, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isProjectRoute =
+    location.pathname.includes("/kanban/") ||
+    location.pathname.includes("/database/");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [activeCompany, setActiveCompany] = useState<Company | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -317,7 +328,98 @@ export function MainLayout() {
 
         {/* Content Area */}
         <div className="flex-1 overflow-auto p-6">
-          <Outlet />
+          {!activeCompany ? (
+            <div className="h-full flex flex-col items-center justify-center max-w-lg mx-auto">
+              <div className="w-full space-y-6 text-center">
+                <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold">No Company Selected</h2>
+                  <p className="text-muted-foreground">
+                    Please select an existing company or create a new one to
+                    start working.
+                  </p>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={() => setIsCompanyDialogOpen(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create New Company
+                </Button>
+
+                {companies.length > 0 && (
+                  <div className="bg-card border border-border rounded-lg p-4 mt-6">
+                    <h3 className="font-medium mb-3">Your Companies</h3>
+                    <div className="space-y-2">
+                      {companies.map((company) => (
+                        <Button
+                          key={company.id}
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => setActiveCompany(company)}
+                        >
+                          <Briefcase className="mr-2 h-4 w-4" />
+                          {company.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : !isProjectRoute ? (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold">Projects</h1>
+                <Button onClick={openProjectDialog}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Project
+                </Button>
+              </div>
+
+              {projects.length === 0 ? (
+                <div className="bg-card border border-border rounded-lg p-6 text-center">
+                  <h2 className="text-xl font-semibold mb-2">No Projects Yet</h2>
+                  <p className="text-muted-foreground mb-4">
+                    Create your first project to start organizing tasks.
+                  </p>
+                  <Button onClick={openProjectDialog}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Project
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projects.map((project) => (
+                    <Card key={project.id}>
+                      <CardHeader>
+                        <CardTitle>{project.name}</CardTitle>
+                      </CardHeader>
+                      <CardFooter className="flex justify-between">
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/kanban/${project.id}`)}
+                        >
+                          <FolderKanban className="mr-2 h-4 w-4" />
+                          Kanban
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/database/${project.id}`)}
+                        >
+                          <Database className="mr-2 h-4 w-4" />
+                          Database
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </div>
       </main>
 
