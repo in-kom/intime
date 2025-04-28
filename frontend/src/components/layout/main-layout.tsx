@@ -244,7 +244,7 @@ export function MainLayout() {
                 <div className={`font-medium ${!isNavigationOpen && "hidden"}`}>
                   {project.name}
                 </div>
-                <div className="flex space-x-1">
+                <div>
                   <Button
                     variant="ghost"
                     size="sm"

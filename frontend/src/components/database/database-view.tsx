@@ -144,7 +144,14 @@ export function DatabaseView({
     }),
     columnHelper.accessor("description", {
       header: "Description",
-      cell: info => info.getValue() || "-",
+      cell: info => {
+        const description = info.getValue();
+        return description ? (
+          <div className="max-w-md line-clamp-2 overflow-hidden text-ellipsis">
+            {description}
+          </div>
+        ) : "-";
+      },
     }),
     columnHelper.accessor("tags", {
       header: "Tags",

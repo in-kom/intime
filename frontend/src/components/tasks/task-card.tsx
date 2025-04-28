@@ -4,7 +4,8 @@ import { format } from "date-fns";
 import { 
   CalendarIcon, 
   MoreHorizontal,
-  Trash2 
+  Trash2,
+  Pencil
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -82,7 +83,9 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleEdit}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit</DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => onDelete(task.id)}
               className="text-destructive focus:text-destructive"
@@ -95,7 +98,9 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
       </div>
       
       {task.description && (
-        <p className="text-muted-foreground text-sm mt-2">{task.description}</p>
+        <p className="text-muted-foreground text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis">
+          {task.description}
+        </p>
       )}
       
       <div className="flex flex-wrap gap-2 mt-3">
