@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { companiesAPI, projectsAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Plus, FolderKanban, Database } from "lucide-react";
+import { Plus, FolderKanban, Database, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -165,6 +165,12 @@ export default function DashboardPage() {
                   <Button variant="outline" size="sm">
                     <FolderKanban className="mr-2 h-4 w-4" />
                     Kanban
+                  </Button>
+                </Link>
+                <Link to={`/calendar/${project.id}`}>
+                  <Button variant="outline" size="sm">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Calendar
                   </Button>
                 </Link>
                 <Link to={`/database/${project.id}`}>

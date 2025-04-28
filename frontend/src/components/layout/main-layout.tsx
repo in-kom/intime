@@ -30,6 +30,7 @@ import {
   FolderKanban,
   Database,
   Building2,
+  Calendar,
 } from "lucide-react";
 import {
   Card,
@@ -258,6 +259,15 @@ export function MainLayout() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => navigate(`/calendar/${project.id}`)}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    {isNavigationOpen && <span className="ml-2">Calendar</span>}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start"
                     onClick={() => navigate(`/database/${project.id}`)}
                   >
                     <Database className="h-4 w-4" />
@@ -403,6 +413,13 @@ export function MainLayout() {
                         >
                           <FolderKanban className="mr-2 h-4 w-4" />
                           Kanban
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/calendar/${project.id}`)}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Calendar
                         </Button>
                         <Button
                           variant="outline"

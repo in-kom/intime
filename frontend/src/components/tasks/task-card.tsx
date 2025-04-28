@@ -36,9 +36,10 @@ interface TaskCardProps {
   task: Task;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
+  disableDrag?: boolean;
 }
 
-export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
+export function TaskCard({ task, onEdit, onDelete, disableDrag }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -46,7 +47,10 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({ 
+    id: task.id,
+    disabled: disableDrag
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -70,9 +74,9 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className="bg-card border border-border rounded-md p-3 mb-2 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow"
+      {...(disableDrag ? {} : attributes)}
+      {...(disableDrag ? {} : listeners)}
+      className={`bg-card border border-border rounded-md p-3 mb-2 shadow-sm hover:shadow-md transition-shadow ${disableDrag ? '' : 'cursor-grab active:cursor-grabbing'}`}
     >
       <div className="flex justify-between items-start">
         <h3 className="font-medium text-sm">{task.title}</h3>

@@ -5,7 +5,7 @@ import RegisterPage from "@/pages/register";
 import DashboardPage from "./pages/dashboard";
 import KanbanPage from "./pages/kanban";
 import DatabasePage from "./pages/database";
-import TagsPage from "./pages/tags";
+import CalendarPage from "./pages/calendar";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 
@@ -35,8 +35,8 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "kanban/:projectId", element: <KanbanPage /> },
+      { path: "calendar/:projectId", element: <CalendarPage /> },
       { path: "database/:projectId", element: <DatabasePage /> },
-      { path: "tags", element: <TagsPage /> },
     ],
   },
 ]);
