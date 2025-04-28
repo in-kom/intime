@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { projectsAPI, tasksAPI } from "@/lib/api";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
@@ -27,6 +27,8 @@ export default function KanbanPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const kanbanBoardRef = useRef<{ refreshTasks: () => void } | null>(null);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -59,7 +61,12 @@ export default function KanbanPage() {
   const handleDeleteTask = async (taskId: string) => {
     try {
       await tasksAPI.delete(taskId);
-      // Refresh tasks after deletion (handled by the KanbanBoard)
+      // Refresh the board after deletion
+      if (kanbanBoardRef.current) {
+        kanbanBoardRef.current.refreshTasks();
+      } else {
+        setRefreshKey(prev => prev + 1);
+      }
     } catch (error) {
       console.error("Failed to delete task", error);
     }
@@ -72,7 +79,14 @@ export default function KanbanPage() {
       } else {
         await tasksAPI.create(projectId, data);
       }
-      // Refresh tasks after update/create (handled by the KanbanBoard)
+      setIsFormOpen(false);
+      
+      // Refresh the board after create/update
+      if (kanbanBoardRef.current) {
+        kanbanBoardRef.current.refreshTasks();
+      } else {
+        setRefreshKey(prev => prev + 1);
+      }
     } catch (error) {
       console.error("Failed to save task", error);
     }
@@ -93,10 +107,12 @@ export default function KanbanPage() {
 
       <div className="flex-1 overflow-hidden">
         <KanbanBoard
+          key={refreshKey}
           projectId={projectId}
           onAddTask={handleAddTask}
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
+          ref={kanbanBoardRef}
         />
       </div>
 

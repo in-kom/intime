@@ -12,6 +12,15 @@ import {
 import { useState, useEffect } from "react";
 import { TagSelector } from "@/components/tags/tag-selector";
 import { useParams } from "react-router-dom";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 // Define Tag interface
 interface Tag {
@@ -49,8 +58,9 @@ interface TaskFormProps {
 export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const { projectId = "" } = useParams<{ projectId: string }>();
+  const [date, setDate] = useState<Date | undefined>(undefined);
 
-  const { register, handleSubmit, reset, formState } = useForm<TaskFormValues>({
+  const { register, handleSubmit, reset, formState, setValue, watch } = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
       title: task?.title || "",
@@ -63,12 +73,22 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
 
   useEffect(() => {
     if (open) {
+      // Format the date properly for HTML date input (YYYY-MM-DD)
+      let formattedDate = "";
+      if (task?.dueDate) {
+        // Extract just the YYYY-MM-DD part from the date string
+        formattedDate = task.dueDate.split('T')[0];
+        setDate(new Date(formattedDate));
+      } else {
+        setDate(undefined);
+      }
+      
       reset({
         title: task?.title || "",
         description: task?.description || "",
         status: task?.status || "TODO",
         priority: task?.priority || "MEDIUM",
-        dueDate: task?.dueDate || "",
+        dueDate: formattedDate,
       });
       setSelectedTags(task?.tags || []);
     }
@@ -79,6 +99,18 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
     onSubmit({ ...values, tagIds });
     onClose();
   };
+
+  // Update form value when date changes
+  const onDateChange = (selectedDate: Date | undefined) => {
+    setDate(selectedDate);
+    if (selectedDate) {
+      setValue("dueDate", format(selectedDate, "yyyy-MM-dd"));
+    } else {
+      setValue("dueDate", "");
+    }
+  };
+
+  const dueDate = watch("dueDate");
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -155,12 +187,35 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
             <label htmlFor="dueDate" className="text-sm font-medium">
               Due Date
             </label>
-            <input
-              id="dueDate"
-              type="date"
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              {...register("dueDate")}
-            />
+            <div className="flex gap-2">
+              <input
+                id="dueDate"
+                type="date"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                {...register("dueDate")}
+              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-10 p-0",
+                      !dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={onDateChange}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div className="space-y-2">

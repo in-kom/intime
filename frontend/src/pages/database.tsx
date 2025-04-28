@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { projectsAPI, tasksAPI } from "@/lib/api";
 import { DatabaseView } from "@/components/database/database-view";
@@ -35,6 +35,9 @@ export default function DatabasePage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const databaseViewRef = useRef<{ refreshTasks: () => void } | null>(null);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -52,7 +55,13 @@ export default function DatabasePage() {
   }, [projectId]);
 
   const handleAddTask = () => {
-    setCurrentTask(undefined);
+    setCurrentTask({
+      id: "",
+      title: "",
+      description: "",
+      status: "TODO",
+      priority: "MEDIUM",
+    });
     setIsFormOpen(true);
   };
 
@@ -64,7 +73,6 @@ export default function DatabasePage() {
   const handleDeleteTask = async (taskId: string) => {
     try {
       await tasksAPI.delete(taskId);
-      // Refresh tasks after deletion (handled by the DatabaseView)
     } catch (error) {
       console.error("Failed to delete task", error);
     }
@@ -77,7 +85,13 @@ export default function DatabasePage() {
       } else {
         await tasksAPI.create(projectId, data);
       }
-      // Refresh tasks after update/create (handled by the DatabaseView)
+      setIsFormOpen(false);
+
+      if (databaseViewRef.current) {
+        databaseViewRef.current.refreshTasks();
+      } else {
+        setRefreshKey((prev) => prev + 1);
+      }
     } catch (error) {
       console.error("Failed to save task", error);
     }
@@ -96,8 +110,10 @@ export default function DatabasePage() {
         )}
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-hidden">
         <DatabaseView
+          key={refreshKey}
+          ref={databaseViewRef}
           projectId={projectId}
           onAddTask={handleAddTask}
           onEditTask={handleEditTask}

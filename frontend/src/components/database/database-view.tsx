@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { format } from "date-fns";
 import {
   createColumnHelper,
@@ -36,17 +36,25 @@ interface DatabaseViewProps {
   onDeleteTask: (id: string) => void;
 }
 
-export function DatabaseView({
+export const DatabaseView = forwardRef(function DatabaseView({
   projectId,
   onAddTask,
   onEditTask,
   onDeleteTask,
-}: DatabaseViewProps) {
+}: DatabaseViewProps, ref) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const columnHelper = createColumnHelper<Task>();
+
+  // Expose the refreshTasks method via ref
+  useImperativeHandle(ref, () => ({
+    refreshTasks: () => {
+      setRefreshKey(prev => prev + 1);
+    }
+  }));
 
   const columns = [
     columnHelper.accessor("title", {
@@ -178,14 +186,14 @@ export function DatabaseView({
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={() => onEditTask(row.original)}
+            onClick={() => handleEditTask(row.original)}
           >
             <Edit className="h-4 w-4" />
           </Button>
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={() => onDeleteTask(row.original.id)}
+            onClick={() => handleDeleteTask(row.original.id)}
             className="text-destructive hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
@@ -198,6 +206,7 @@ export function DatabaseView({
   useEffect(() => {
     const fetchTasks = async () => {
       try {
+        setIsLoading(true);
         const response = await tasksAPI.getAll(projectId);
         setTasks(response.data);
       } catch (error) {
@@ -208,7 +217,20 @@ export function DatabaseView({
     };
 
     fetchTasks();
-  }, [projectId]);
+  }, [projectId, refreshKey]);
+
+  const refreshTasks = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const handleEditTask = (task: Task) => {
+    onEditTask(task);
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    onDeleteTask(taskId);
+    refreshTasks();
+  };
 
   const table = useReactTable({
     data: tasks,
@@ -278,4 +300,4 @@ export function DatabaseView({
       </div>
     </div>
   );
-}
+});

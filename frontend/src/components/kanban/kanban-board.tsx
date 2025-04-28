@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { 
   DndContext, 
   DragEndEvent,
@@ -21,6 +21,13 @@ interface Task {
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate?: string;
+  tags?: Tag[];
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
 }
 
 interface TaskFormData {
@@ -38,15 +45,16 @@ interface KanbanBoardProps {
   onDeleteTask: (id: string) => void;
 }
 
-export function KanbanBoard({ 
+export const KanbanBoard = forwardRef(function KanbanBoard({ 
   projectId, 
   onAddTask, 
   onEditTask, 
   onDeleteTask 
-}: KanbanBoardProps) {
+}: KanbanBoardProps, ref) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -56,9 +64,16 @@ export function KanbanBoard({
     })
   );
 
+  useImperativeHandle(ref, () => ({
+    refreshTasks: () => {
+      setRefreshKey(prev => prev + 1);
+    }
+  }));
+
   useEffect(() => {
     const fetchTasks = async () => {
       try {
+        setIsLoading(true);
         const response = await tasksAPI.getAll(projectId);
         setTasks(response.data);
       } catch (error) {
@@ -69,7 +84,11 @@ export function KanbanBoard({
     };
 
     fetchTasks();
-  }, [projectId]);
+  }, [projectId, refreshKey]);
+
+  const refreshTasks = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -92,7 +111,6 @@ export function KanbanBoard({
     
     if (activeTaskId === overTaskId) return;
     
-    // Only handle reordering here - column changes are handled in handleDragOver
     if (over.data.current?.type !== "droppable") {
       setTasks((tasks) => {
         const oldIndex = tasks.findIndex((task) => task.id === activeTaskId);
@@ -111,10 +129,8 @@ export function KanbanBoard({
     const activeTaskId = active.id as string;
     const overId = over.id as string;
     
-    // Don't do anything if we're not over a droppable container or the same task
     if (activeTaskId === overId || !over.data.current) return;
     
-    // Handle dropping a task into a column
     if (over.data.current?.type === "droppable") {
       const activeTask = tasks.find((task) => task.id === activeTaskId);
       if (!activeTask) return;
@@ -122,18 +138,15 @@ export function KanbanBoard({
       const newStatus = overId as "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
       if (activeTask.status === newStatus) return;
       
-      // Update the task status in the UI
       setTasks((tasks) =>
         tasks.map((task) =>
           task.id === activeTaskId ? { ...task, status: newStatus } : task
         )
       );
       
-      // Update the task status in the backend
       tasksAPI.update(activeTaskId, { ...activeTask, status: newStatus })
         .catch((error) => {
           console.error("Failed to update task status", error);
-          // Rollback UI change if the API call fails
           setTasks((tasks) => [...tasks]);
         });
     }
@@ -151,13 +164,13 @@ export function KanbanBoard({
 
   const handleEditTask = (task: Task) => {
     onEditTask(task.id, task);
+    refreshTasks();
   };
 
   const handleDeleteTask = (taskId: string) => {
     onDeleteTask(taskId);
   };
 
-  // Group tasks by status
   const tasksByStatus = {
     TODO: tasks.filter((task) => task.status === "TODO"),
     IN_PROGRESS: tasks.filter((task) => task.status === "IN_PROGRESS"),
@@ -212,7 +225,6 @@ export function KanbanBoard({
           />
         </div>
         
-        {/* Overlay for dragged task to ensure it appears on top */}
         <DragOverlay>
           {activeTask ? (
             <div className="w-[288px] pointer-events-none">
@@ -227,4 +239,4 @@ export function KanbanBoard({
       </DndContext>
     </div>
   );
-}
+});
