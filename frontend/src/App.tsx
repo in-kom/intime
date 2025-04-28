@@ -34,7 +34,8 @@ import {
   Settings,
 } from "lucide-react";
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "../ui/separator";
+import { Separator } from "@/components/ui/separator";
+import { Toaster } from "sonner";
 
 type Company = {
   id: string;
@@ -586,6 +587,8 @@ export function MainLayout() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Toaster position="top-right" />
     </div>
   );
 }

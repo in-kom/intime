@@ -7,6 +7,7 @@ import KanbanPage from "./pages/kanban";
 import DatabasePage from "./pages/database";
 import CalendarPage from "./pages/calendar";
 import ProjectDetailsPage from "./pages/project-details";
+import CompanySettingsPage from "@/pages/company-settings";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 
@@ -47,6 +48,10 @@ const router = createBrowserRouter([
       { path: "calendar/:projectId", element: <CalendarPage /> },
       { path: "database/:projectId", element: <DatabasePage /> },
       { path: "/project-details/:projectId", element: <ProjectDetailsPage /> },
+      {
+        path: "/company-settings/:companyId",
+        element: <CompanySettingsPage />,
+      },
     ],
   },
 ]);

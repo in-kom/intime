@@ -33,7 +33,7 @@ export const companiesAPI = {
   getById: (id: string) => api.get(`/companies/${id}`),
   create: (data: { name: string; description?: string }) =>
     api.post("/companies", data),
-  update: (id: string, data: { name?: string; description?: string }) =>
+  update: (id: string, data: { name: string; description?: string }) =>
     api.put(`/companies/${id}`, data),
   delete: (id: string) => api.delete(`/companies/${id}`),
   addMember: (id: string, email: string) =>
