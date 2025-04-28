@@ -9,6 +9,7 @@ import { companyRouter } from './routes/company.routes';
 import { projectRouter } from './routes/project.routes';
 import { taskRouter } from './routes/task.routes';
 import { tagRouter } from './routes/tag.routes';
+import { projectDetailRouter } from './routes/project-detail.routes';
 import { errorHandler } from './middleware/error.middleware';
 
 // Load environment variables
@@ -28,6 +29,7 @@ app.use('/api/companies', companyRouter);
 app.use('/api/projects', projectRouter);
 app.use('/api/tasks', taskRouter);
 app.use('/api/tags', tagRouter);
+app.use('/api/project-details', projectDetailRouter);
 
 // Error handler
 app.use(errorHandler);

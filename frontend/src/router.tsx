@@ -6,6 +6,7 @@ import DashboardPage from "./pages/dashboard";
 import KanbanPage from "./pages/kanban";
 import DatabasePage from "./pages/database";
 import CalendarPage from "./pages/calendar";
+import ProjectDetailsPage from "./pages/project-details";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 
@@ -16,11 +17,19 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
 
 const router = createBrowserRouter([
   {
-    element: <AuthLayout><LoginPage /></AuthLayout>,
+    element: (
+      <AuthLayout>
+        <LoginPage />
+      </AuthLayout>
+    ),
     path: "/login",
   },
   {
-    element: <AuthLayout><RegisterPage /></AuthLayout>,
+    element: (
+      <AuthLayout>
+        <RegisterPage />
+      </AuthLayout>
+    ),
     path: "/register",
   },
   {
@@ -37,6 +46,7 @@ const router = createBrowserRouter([
       { path: "kanban/:projectId", element: <KanbanPage /> },
       { path: "calendar/:projectId", element: <CalendarPage /> },
       { path: "database/:projectId", element: <DatabasePage /> },
+      { path: "/project-details/:projectId", element: <ProjectDetailsPage /> },
     ],
   },
 ]);

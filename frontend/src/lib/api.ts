@@ -92,4 +92,15 @@ export const tagsAPI = {
   delete: (id: string) => api.delete(`/tags/${id}`),
 };
 
+// Project Details API
+export const projectDetailsAPI = {
+  getAll: (projectId: string) => api.get(`/project-details/project/${projectId}`),
+  getById: (id: string) => api.get(`/project-details/${id}`),
+  create: (projectId: string, data: { title: string; url: string; description?: string }) =>
+    api.post(`/project-details/project/${projectId}`, data),
+  update: (id: string, data: { title?: string; url?: string; description?: string }) =>
+    api.put(`/project-details/${id}`, data),
+  delete: (id: string) => api.delete(`/project-details/${id}`),
+};
+
 export default api;

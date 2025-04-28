@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -32,12 +32,8 @@ import {
   Building2,
   Calendar,
 } from "lucide-react";
-import {
-  Card,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "../ui/separator";
 
 type Company = {
   id: string;
@@ -58,6 +54,7 @@ export function MainLayout() {
   const isProjectRoute =
     location.pathname.includes("/calendar/") ||
     location.pathname.includes("/kanban/") ||
+    location.pathname.includes("/project-details/") ||
     location.pathname.includes("/database/");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [activeCompany, setActiveCompany] = useState<Company | null>(null);
@@ -174,7 +171,9 @@ export function MainLayout() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">Loading...</div>
+      <div className="flex items-center justify-center h-screen">
+        Loading...
+      </div>
     );
   }
 
@@ -237,45 +236,59 @@ export function MainLayout() {
 
         {/* Projects List */}
         <div className="flex-1 overflow-auto p-4">
-          {isNavigationOpen && (
-            <h2 className="font-semibold mb-2">Projects</h2>
-          )}
+          {isNavigationOpen && <h2 className="font-semibold mb-2">Projects</h2>}
           <div className="space-y-1">
             {projects.map((project) => (
-              <div key={project.id} className="flex flex-col space-y-1">
-                <div className={`font-medium ${!isNavigationOpen && "hidden"}`}>
-                  {project.name}
+              <>
+                <div key={project.id} className="flex flex-col space-y-1 mt-4">
+                  <div
+                    className={`font-medium mb-2 ${!isNavigationOpen && "hidden"}`}
+                  >
+                    <Link
+                      to={`/project-details/${project.id}`}
+                      className="hover:underline"
+                    >
+                      <CardTitle className="cursor-pointer">
+                        {project.name}
+                      </CardTitle>
+                    </Link>
+                  </div>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => navigate(`/kanban/${project.id}`)}
+                    >
+                      <FolderKanban className="h-4 w-4" />
+                      {isNavigationOpen && <span className="ml-2">Kanban</span>}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => navigate(`/calendar/${project.id}`)}
+                    >
+                      <Calendar className="h-4 w-4" />
+                      {isNavigationOpen && (
+                        <span className="ml-2">Calendar</span>
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => navigate(`/database/${project.id}`)}
+                    >
+                      <Database className="h-4 w-4" />
+                      {isNavigationOpen && (
+                        <span className="ml-2">Database</span>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => navigate(`/kanban/${project.id}`)}
-                  >
-                    <FolderKanban className="h-4 w-4" />
-                    {isNavigationOpen && <span className="ml-2">Kanban</span>}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => navigate(`/calendar/${project.id}`)}
-                  >
-                    <Calendar className="h-4 w-4" />
-                    {isNavigationOpen && <span className="ml-2">Calendar</span>}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => navigate(`/database/${project.id}`)}
-                  >
-                    <Database className="h-4 w-4" />
-                    {isNavigationOpen && <span className="ml-2">Database</span>}
-                  </Button>
-                </div>
-              </div>
+                <Separator />
+              </>
             ))}
           </div>
 
@@ -391,7 +404,9 @@ export function MainLayout() {
 
               {projects.length === 0 ? (
                 <div className="bg-card border border-border rounded-lg p-6 text-center">
-                  <h2 className="text-xl font-semibold mb-2">No Projects Yet</h2>
+                  <h2 className="text-xl font-semibold mb-2">
+                    No Projects Yet
+                  </h2>
                   <p className="text-muted-foreground mb-4">
                     Create your first project to start organizing tasks.
                   </p>
@@ -405,7 +420,14 @@ export function MainLayout() {
                   {projects.map((project) => (
                     <Card key={project.id}>
                       <CardHeader>
-                        <CardTitle>{project.name}</CardTitle>
+                        <Link
+                          to={`/project-details/${project.id}`}
+                          className="hover:underline"
+                        >
+                          <CardTitle className="cursor-pointer">
+                            {project.name}
+                          </CardTitle>
+                        </Link>
                       </CardHeader>
                       <CardFooter className="flex justify-between">
                         <Button
