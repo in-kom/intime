@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api";
+export const API_URL = "http://localhost:3000/api";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -40,6 +40,26 @@ export const companiesAPI = {
     api.post(`/companies/${id}/members`, { email }),
   removeMember: (id: string, userId: string) =>
     api.delete(`/companies/${id}/members/${userId}`),
+  // New image-related methods
+  uploadImage: (id: string, imageFile: File) => {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    return api.post(`/companies/${id}/image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+  updateImage: (id: string, imageFile: File) => {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    return api.put(`/companies/${id}/image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+  deleteImage: (id: string) => api.delete(`/companies/${id}/image`),
 };
 
 // Projects API

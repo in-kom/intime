@@ -6,11 +6,13 @@ import { Plus, FolderKanban, Database, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 type Company = {
   id: string;
   name: string;
   description?: string;
+  imageUrl?: string;
 };
 
 type Project = {
@@ -109,6 +111,8 @@ export default function DashboardPage() {
     setIsProjectDialogOpen(true);
   };
 
+  const activeCompany = companies.find(company => company.id === activeCompanyId);
+
   if (isLoading) {
     return <div className="flex justify-center items-center h-full">Loading...</div>;
   }
@@ -116,7 +120,19 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          {activeCompany && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">|</span>
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <span className="font-medium">{activeCompany.name}</span>
+            </div>
+          )}
+        </div>
         {companies.length > 0 && (
           <Button onClick={openProjectDialog}>
             <Plus className="mr-2 h-4 w-4" />
@@ -152,7 +168,15 @@ export default function DashboardPage() {
           {projects.map((project) => (
             <div key={project.id} className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="p-4">
-                <h3 className="text-lg font-semibold">{project.name}</h3>
+                <div className="flex items-center gap-3 mb-2">
+                  {activeCompany && (
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                      <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <h3 className="text-lg font-semibold">{project.name}</h3>
+                </div>
                 {project.description && (
                   <p className="text-muted-foreground text-sm mt-1">{project.description}</p>
                 )}
@@ -221,6 +245,10 @@ export default function DashboardPage() {
                 placeholder="Enter company description"
               />
             </div>
+            
+            <p className="text-sm text-muted-foreground">
+              You can add a company logo in the company settings after creation.
+            </p>
           </div>
 
           <DialogFooter>
@@ -240,7 +268,15 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
             <DialogDescription>
-              Add a new project to organize your tasks.
+              Add a new project to {activeCompany ? (
+                <span className="flex items-center gap-2 inline-flex">
+                  <Avatar className="h-5 w-5 inline">
+                    <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                    <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  {activeCompany.name}
+                </span>
+              ) : "your company"}.
             </DialogDescription>
           </DialogHeader>
 

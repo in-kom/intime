@@ -35,10 +35,12 @@ import {
 } from "lucide-react";
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "../ui/separator";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 type Company = {
   id: string;
   name: string;
+  imageUrl?: string;
   projects?: Project[];
 };
 
@@ -210,7 +212,14 @@ export function MainLayout() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full justify-start">
-                <Briefcase className="mr-2 h-4 w-4" />
+                {activeCompany?.imageUrl ? (
+                  <Avatar className="h-5 w-5 mr-2">
+                    <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                    <AvatarFallback><Briefcase className="h-4 w-4" /></AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <Briefcase className="mr-2 h-4 w-4" />
+                )}
                 {isNavigationOpen
                   ? activeCompany?.name || "Select Company"
                   : ""}
@@ -223,7 +232,12 @@ export function MainLayout() {
                 <DropdownMenuItem
                   key={company.id}
                   onClick={() => setActiveCompany(company)}
+                  className="flex items-center"
                 >
+                  <Avatar className="h-6 w-6 mr-2">
+                    <AvatarImage src={company.imageUrl} alt={company.name} />
+                    <AvatarFallback>{company.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
                   {company.name}
                 </DropdownMenuItem>
               ))}
@@ -352,9 +366,15 @@ export function MainLayout() {
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
         <header className="h-14 border-b border-border p-4 flex items-center justify-between">
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
             {activeCompany && (
-              <h2 className="font-semibold">{activeCompany.name}</h2>
+              <>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                  <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <h2 className="font-semibold">{activeCompany.name}</h2>
+              </>
             )}
           </div>
           <div className="flex items-center gap-2">

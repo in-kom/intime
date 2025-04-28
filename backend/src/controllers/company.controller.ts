@@ -212,3 +212,114 @@ export const removeMember = async (req: Request, res: Response) => {
 
   res.status(200).json(updatedCompany);
 };
+
+// Upload company image
+export const uploadImage = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  // Check if user has access to company
+  const company = await prisma.company.findFirst({
+    where: {
+      id,
+      OR: [
+        { ownerId: req.user!.id },
+        { members: { some: { id: req.user!.id } } }
+      ]
+    }
+  });
+
+  if (!company) {
+    throw new AppError('Company not found or you do not have access', 404);
+  }
+  
+  // Handle file upload (using file upload middleware)
+  if (!req.file) {
+    throw new AppError('No image file provided', 400);
+  }
+  
+  // Store the file path or URL (adjust based on your storage solution)
+  const imageUrl = `/uploads/companies/${req.file.filename}`;
+  
+  // Update company with image URL
+  const updatedCompany = await prisma.company.update({
+    where: { id },
+    data: { imageUrl }
+  });
+  
+  res.status(200).json(updatedCompany);
+};
+
+// Update company image
+export const updateImage = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  // Check if user has access to company
+  const company = await prisma.company.findFirst({
+    where: {
+      id,
+      OR: [
+        { ownerId: req.user!.id },
+        { members: { some: { id: req.user!.id } } }
+      ]
+    }
+  });
+
+  if (!company) {
+    throw new AppError('Company not found or you do not have access', 404);
+  }
+  
+  // Handle file upload
+  if (!req.file) {
+    throw new AppError('No image file provided', 400);
+  }
+  
+  // If company already has an image, you might want to delete the old file here
+  // (implementation would depend on your file storage system)
+  
+  // Store the new file path or URL
+  const imageUrl = `/uploads/companies/${req.file.filename}`;
+  
+  // Update company with new image URL
+  const updatedCompany = await prisma.company.update({
+    where: { id },
+    data: { imageUrl }
+  });
+  
+  res.status(200).json(updatedCompany);
+};
+
+// Delete company image
+export const deleteImage = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  // Check if user has access to company
+  const company = await prisma.company.findFirst({
+    where: {
+      id,
+      OR: [
+        { ownerId: req.user!.id },
+        { members: { some: { id: req.user!.id } } }
+      ]
+    }
+  });
+
+  if (!company) {
+    throw new AppError('Company not found or you do not have access', 404);
+  }
+  
+  // Check if company has an image
+  if (!company.imageUrl) {
+    throw new AppError('Company does not have an image', 400);
+  }
+  
+  // Delete the file if needed
+  // (implementation would depend on your file storage system)
+  
+  // Update company to remove image URL
+  const updatedCompany = await prisma.company.update({
+    where: { id },
+    data: { imageUrl: null }
+  });
+  
+  res.status(204).send();
+};
