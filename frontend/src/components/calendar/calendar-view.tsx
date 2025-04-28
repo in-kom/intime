@@ -11,8 +11,14 @@ import {
   isToday,
   parseISO,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { tasksAPI } from "@/lib/api";
 import { TagBadge } from "@/components/tags/tag-badge";
 
@@ -43,14 +49,17 @@ export function CalendarView({
   projectId,
   onAddTask,
   onEditTask,
+  onDeleteTask,
 }: CalendarViewProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     const fetchTasks = async () => {
       try {
+        setIsLoading(true);
         const response = await tasksAPI.getAll(projectId);
         setTasks(response.data);
       } catch (error) {
@@ -61,7 +70,11 @@ export function CalendarView({
     };
 
     fetchTasks();
-  }, [projectId]);
+  }, [projectId, refreshTrigger]);
+
+  const refreshTasks = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   const handlePreviousMonth = () => {
     setCurrentMonth(subMonths(currentMonth, 1));
@@ -73,6 +86,19 @@ export function CalendarView({
 
   const handleAddTask = (date: Date) => {
     onAddTask(format(date, "yyyy-MM-dd"));
+  };
+
+  const handleEditTask = (task: Task) => {
+    onEditTask(task);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await onDeleteTask(taskId);
+      refreshTasks();
+    } catch (error) {
+      console.error("Failed to delete task", error);
+    }
   };
 
   // Get days in current month view (including days from previous/next months to fill the grid)
@@ -215,10 +241,36 @@ export function CalendarView({
                   {tasksForDay.map(task => (
                     <div 
                       key={task.id} 
-                      className={`text-xs p-1 mb-1 rounded border-l-2 bg-background cursor-pointer ${getStatusColor(task.status)}`}
-                      onClick={() => onEditTask(task)}
+                      className={`text-xs p-1 mb-1 rounded border-l-2 bg-background relative group ${getStatusColor(task.status)}`}
                     >
-                      <div className="font-medium truncate">{task.title}</div>
+                      <div className="flex justify-between items-start">
+                        <div 
+                          className="font-medium truncate cursor-pointer pr-6" 
+                          onClick={() => handleEditTask(task)}
+                        >
+                          {task.title}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 absolute right-1 top-1 opacity-0 group-hover:opacity-100">
+                              <MoreHorizontal className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditTask(task)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteTask(task.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                       <div className="flex items-center gap-1 mt-1">
                         <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${getPriorityColor(task.priority)}`}>
                           {task.priority}

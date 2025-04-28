@@ -36,6 +36,7 @@ export default function CalendarPage() {
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [, setSelectedDate] = useState<string | undefined>(undefined);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -72,7 +73,7 @@ export default function CalendarPage() {
   const handleDeleteTask = async (taskId: string) => {
     try {
       await tasksAPI.delete(taskId);
-      // The calendar view will refresh tasks after deletion
+      setRefreshKey(prev => prev + 1); // Trigger refresh
     } catch (error) {
       console.error("Failed to delete task", error);
     }
@@ -86,7 +87,7 @@ export default function CalendarPage() {
         await tasksAPI.create(projectId, data);
       }
       setIsFormOpen(false);
-      // The calendar view will refresh tasks after update/create
+      setRefreshKey(prev => prev + 1); // Trigger refresh
     } catch (error) {
       console.error("Failed to save task", error);
     }
@@ -107,6 +108,7 @@ export default function CalendarPage() {
 
       <div className="flex-1 overflow-hidden">
         <CalendarView
+          key={refreshKey} // Force re-mount when tasks change
           projectId={projectId}
           onAddTask={handleAddTask}
           onEditTask={handleEditTask}

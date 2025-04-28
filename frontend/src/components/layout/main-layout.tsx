@@ -56,6 +56,7 @@ export function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isProjectRoute =
+    location.pathname.includes("/calendar/") ||
     location.pathname.includes("/kanban/") ||
     location.pathname.includes("/database/");
   const [companies, setCompanies] = useState<Company[]>([]);
