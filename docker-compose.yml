@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./src/frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:3000/api
+    volumes:
+      # Mount the source code for development hot-reloading
+      - ./src/frontend:/app/src
+      # Note: Before building, run: npm install date-fns@3.6.0 --save
+      # This resolves the conflict between react-day-picker@8.10.1 and date-fns
+
+  backend:
+    build:
+      context: ./src/backend
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - JWT_SECRET=your_jwt_secret
+      - JWT_EXPIRES_IN=1d
+    volumes:
+      - ./uploads:/app/uploads

@@ -232,7 +232,7 @@ export function MainLayout() {
                 <DropdownMenuItem
                   key={company.id}
                   onClick={() => setActiveCompany(company)}
-                  className="flex items-center"
+                  className="flex items-center hover:cursor-pointer"
                 >
                   <Avatar className="h-6 w-6 mr-2">
                     <AvatarImage src={company.imageUrl} alt={company.name} />
