@@ -8,6 +8,7 @@ import DatabasePage from "./pages/database";
 import CalendarPage from "./pages/calendar";
 import ProjectDetailsPage from "./pages/project-details";
 import CompanySettingsPage from "@/pages/company-settings";
+import UserSettingsPage from "@/pages/user-settings";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 
@@ -52,6 +53,7 @@ const router = createBrowserRouter([
         path: "/company-settings/:companyId",
         element: <CompanySettingsPage />,
       },
+      { path: "/user-settings", element: <UserSettingsPage /> },
     ],
   },
 ]);

@@ -60,6 +60,7 @@ export function MainLayout() {
     location.pathname.includes("/project-details/") ||
     location.pathname.includes("/company-settings/") ||
     location.pathname.includes("/database/");
+  const isUserSettingsRoute = location.pathname.includes("/user-settings/");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [activeCompany, setActiveCompany] = useState<Company | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -231,7 +232,10 @@ export function MainLayout() {
               {companies.map((company) => (
                 <DropdownMenuItem
                   key={company.id}
-                  onClick={() => setActiveCompany(company)}
+                  onClick={() => {
+                    setActiveCompany(company);
+                    navigate("/"); // Navigate to homepage after changing company
+                  }}
                   className="flex items-center hover:cursor-pointer"
                 >
                   <Avatar className="h-6 w-6 mr-2">
@@ -350,8 +354,12 @@ export function MainLayout() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => navigate('/user-settings')}
+              >
+                <User className="mr-2 h-4 w-4" />
+                Profile Settings
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />
@@ -424,7 +432,7 @@ export function MainLayout() {
                 )}
               </div>
             </div>
-          ) : !isProjectRoute ? (
+          ) : (!isProjectRoute && isUserSettingsRoute) ? (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">Projects</h1>

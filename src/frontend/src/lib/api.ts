@@ -25,6 +25,12 @@ export const authAPI = {
   register: (name: string, email: string, password: string) =>
     api.post("/auth/register", { name, email, password }),
   getMe: () => api.get("/auth/me"),
+  updateProfile: (data: { name: string; email: string }) => {
+    return axios.put('/api/users/profile', data);
+  },
+  changePassword: (data: { currentPassword: string; newPassword: string }) => {
+    return axios.put('/api/users/password', data);
+  }
 };
 
 // Companies API
