@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
-import { companiesAPI, projectsAPI } from "@/lib/api";
+import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -60,6 +60,7 @@ export function MainLayout() {
     location.pathname.includes("/project-details/") ||
     location.pathname.includes("/company-settings/") ||
     location.pathname.includes("/database/");
+  const isUserSettingsRoute = location.pathname.includes("/user-settings/");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [activeCompany, setActiveCompany] = useState<Company | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -214,7 +215,7 @@ export function MainLayout() {
               <Button variant="outline" className="w-full justify-start">
                 {activeCompany?.imageUrl ? (
                   <Avatar className="h-5 w-5 mr-2">
-                    <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                    <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
                     <AvatarFallback><Briefcase className="h-4 w-4" /></AvatarFallback>
                   </Avatar>
                 ) : (
@@ -231,11 +232,14 @@ export function MainLayout() {
               {companies.map((company) => (
                 <DropdownMenuItem
                   key={company.id}
-                  onClick={() => setActiveCompany(company)}
-                  className="flex items-center"
+                  onClick={() => {
+                    setActiveCompany(company);
+                    navigate("/"); // Navigate to homepage after changing company
+                  }}
+                  className="flex items-center hover:cursor-pointer"
                 >
                   <Avatar className="h-6 w-6 mr-2">
-                    <AvatarImage src={company.imageUrl} alt={company.name} />
+                    <AvatarImage src={`${API_URL}${company.imageUrl}`} alt={company.name} />
                     <AvatarFallback>{company.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   {company.name}
@@ -350,8 +354,12 @@ export function MainLayout() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => navigate('/user-settings')}
+              >
+                <User className="mr-2 h-4 w-4" />
+                Profile Settings
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />
@@ -370,7 +378,7 @@ export function MainLayout() {
             {activeCompany && (
               <>
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                  <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
                   <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <h2 className="font-semibold">{activeCompany.name}</h2>
@@ -424,7 +432,7 @@ export function MainLayout() {
                 )}
               </div>
             </div>
-          ) : !isProjectRoute ? (
+          ) : (!isProjectRoute && isUserSettingsRoute) ? (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">Projects</h1>

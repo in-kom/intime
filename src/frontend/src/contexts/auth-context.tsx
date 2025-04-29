@@ -6,6 +6,7 @@ type User = {
   id: string;
   name: string;
   email: string;
+  imageUrl?: string;
 };
 
 type AuthContextType = {
@@ -16,6 +17,7 @@ type AuthContextType = {
   logout: () => void;
   isLoading: boolean;
   error: string | null;
+  updateUser: (userData: any) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -95,9 +97,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     navigate("/login");
   };
 
+  const updateUser = (userData: any) => {
+    setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, token, login, register, logout, isLoading, error }}
+      value={{ user, token, login, register, logout, isLoading, error, updateUser }}
     >
       {children}
     </AuthContext.Provider>

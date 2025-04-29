@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { companiesAPI } from "@/lib/api";
+import { API_URL, companiesAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +54,7 @@ export default function CompanySettingsPage() {
   const [description, setDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [, setSelectedImage] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -230,7 +230,7 @@ export default function CompanySettingsPage() {
         <div className="flex items-center gap-4">
           {company.imageUrl ? (
             <Avatar className="h-12 w-12">
-              <AvatarImage src={company.imageUrl} alt={company.name} />
+              <AvatarImage src={`${API_URL}${company.imageUrl}`} alt={company.name} />
               <AvatarFallback>{company.name.charAt(0)}</AvatarFallback>
             </Avatar>
           ) : (

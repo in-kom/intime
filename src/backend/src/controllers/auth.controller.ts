@@ -74,6 +74,7 @@ export const login = async (req: Request, res: Response) => {
     id: user.id,
     name: user.name,
     email: user.email,
+    imageUrl: user.imageUrl,
     token
   });
 };
@@ -85,9 +86,52 @@ export const getMe = async (req: Request, res: Response) => {
     select: {
       id: true,
       name: true,
-      email: true
+      email: true,
+      imageUrl: true
     }
   });
 
   res.status(200).json(user);
+};
+
+// Change password
+export const changePassword = async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body;
+  
+  // Input validation
+  if (!currentPassword || !newPassword) {
+    throw new AppError('Current password and new password are required', 400);
+  }
+  
+  if (newPassword.length < 6) {
+    throw new AppError('Password must be at least 6 characters', 400);
+  }
+
+  // Get user with password
+  const user = await prisma.user.findUnique({
+    where: { id: req.user?.id }
+  });
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  // Verify current password
+  const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+  
+  if (!isPasswordValid) {
+    throw new AppError('Current password is incorrect', 401);
+  }
+
+  // Hash new password
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+  // Update password in database
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedPassword }
+  });
+
+  res.status(200).json({ message: 'Password updated successfully' });
 };

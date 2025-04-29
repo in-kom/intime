@@ -237,7 +237,7 @@ export const uploadImage = async (req: Request, res: Response) => {
     throw new AppError('No image file provided', 400);
   }
   
-  // Store the file path or URL (adjust based on your storage solution)
+  // Store the file path with full URL
   const imageUrl = `/uploads/companies/${req.file.filename}`;
   
   // Update company with image URL
@@ -276,7 +276,7 @@ export const updateImage = async (req: Request, res: Response) => {
   // If company already has an image, you might want to delete the old file here
   // (implementation would depend on your file storage system)
   
-  // Store the new file path or URL
+  // Store the new file path with full URL
   const imageUrl = `/uploads/companies/${req.file.filename}`;
   
   // Update company with new image URL

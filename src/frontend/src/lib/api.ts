@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const API_URL = "http://localhost:3000/api";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -25,6 +25,33 @@ export const authAPI = {
   register: (name: string, email: string, password: string) =>
     api.post("/auth/register", { name, email, password }),
   getMe: () => api.get("/auth/me"),
+  updateProfile: (data: { name: string; email: string }) => {
+    return axios.put('/users/profile', data);
+  },
+  changePassword: (data: { currentPassword: string; newPassword: string }) => {
+    return api.post('/auth/change-password', data);
+  },
+  uploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return api.post('/users/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  updateImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return api.put('/users/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  deleteImage: () => {
+    return api.delete('/users/image');
+  },
 };
 
 // Companies API
