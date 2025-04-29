@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
-import { companiesAPI, projectsAPI } from "@/lib/api";
+import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -215,7 +215,7 @@ export function MainLayout() {
               <Button variant="outline" className="w-full justify-start">
                 {activeCompany?.imageUrl ? (
                   <Avatar className="h-5 w-5 mr-2">
-                    <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                    <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
                     <AvatarFallback><Briefcase className="h-4 w-4" /></AvatarFallback>
                   </Avatar>
                 ) : (
@@ -239,7 +239,7 @@ export function MainLayout() {
                   className="flex items-center hover:cursor-pointer"
                 >
                   <Avatar className="h-6 w-6 mr-2">
-                    <AvatarImage src={company.imageUrl} alt={company.name} />
+                    <AvatarImage src={`${API_URL}${company.imageUrl}`} alt={company.name} />
                     <AvatarFallback>{company.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   {company.name}
@@ -378,7 +378,7 @@ export function MainLayout() {
             {activeCompany && (
               <>
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                  <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
                   <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <h2 className="font-semibold">{activeCompany.name}</h2>

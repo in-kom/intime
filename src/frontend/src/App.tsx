@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
-import { companiesAPI, projectsAPI } from "@/lib/api";
+import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -36,6 +36,7 @@ import {
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Toaster } from "sonner";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 type Company = {
   id: string;
@@ -330,15 +331,28 @@ export function MainLayout() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="w-full justify-start">
-                <User className="h-4 w-4" />
-                {isNavigationOpen && <span className="ml-2">{user.name}</span>}
+                {user.imageUrl ? (
+                  <Avatar className="h-6 w-6 mr-2">
+                    <AvatarImage src={`${API_URL}${user.imageUrl}`} alt={user.name} />
+                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <User className="h-4 w-4 mr-2" />
+                )}
+                {isNavigationOpen && <span>{user.name}</span>}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/user-settings')}>
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/user-settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />

@@ -12,6 +12,7 @@ model User {
   email          String    @unique
   password       String
   name           String
+  imageUrl       String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   companies      Company[] @relation("CompanyMembers")

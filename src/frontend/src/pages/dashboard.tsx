@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { companiesAPI, projectsAPI } from "@/lib/api";
+import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Plus, FolderKanban, Database, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -126,7 +126,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">|</span>
               <Avatar className="h-8 w-8">
-                <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
                 <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <span className="font-medium">{activeCompany.name}</span>
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3 mb-2">
                   {activeCompany && (
                     <Avatar className="h-6 w-6">
-                      <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                      <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
                       <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                   )}
@@ -271,7 +271,7 @@ export default function DashboardPage() {
               Add a new project to {activeCompany ? (
                 <span className="flex items-center gap-2 inline-flex">
                   <Avatar className="h-5 w-5 inline">
-                    <AvatarImage src={activeCompany.imageUrl} alt={activeCompany.name} />
+                    <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
                     <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   {activeCompany.name}
