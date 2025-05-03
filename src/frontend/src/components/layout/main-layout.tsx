@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
+import { useProjects } from "@/contexts/projects-context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
@@ -53,12 +54,15 @@ type Project = {
   companyId: string;
 };
 
-export function MainLayout({
-  setCurrentCompany,
-}: {
-  setCurrentCompany: (company: string) => void;
-}) {
-  const { user, logout, isLoading } = useAuth();
+export function MainLayout() {
+  const { user, logout, isLoading: authLoading } = useAuth();
+  const {
+    projects,
+    activeCompanyId,
+    setActiveCompanyId,
+    isLoading: projectsLoading,
+    addProject,
+  } = useProjects();
   const navigate = useNavigate();
   const location = useLocation();
   const isProjectRoute =
@@ -70,7 +74,6 @@ export function MainLayout({
   const isUserSettingsRoute = location.pathname.includes("/user-settings/");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [activeCompany, setActiveCompany] = useState<Company | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [isNavigationOpen, setIsNavigationOpen] = useState(true);
   const [companyName, setCompanyName] = useState("");
   const [companyDescription, setCompanyDescription] = useState("");
@@ -88,12 +91,13 @@ export function MainLayout({
   }, [user]);
 
   useEffect(() => {
-    if (activeCompany) {
-      localStorage.setItem(ACTIVE_COMPANY_KEY, activeCompany.id);
-      setCurrentCompany(activeCompany.id);
-      fetchProjects(activeCompany.id);
+    if (activeCompanyId && companies.length > 0) {
+      const company = companies.find((c) => c.id === activeCompanyId);
+      if (company) {
+        setActiveCompany(company);
+      }
     }
-  }, [activeCompany, setCurrentCompany]);
+  }, [activeCompanyId, companies]);
 
   const fetchCompanies = async () => {
     try {
@@ -109,23 +113,16 @@ export function MainLayout({
           );
           if (storedCompany) {
             setActiveCompany(storedCompany);
+            setActiveCompanyId(storedCompany.id);
             return;
           }
         }
 
         setActiveCompany(response.data[0]);
+        setActiveCompanyId(response.data[0].id);
       }
     } catch (error) {
       console.error("Failed to fetch companies", error);
-    }
-  };
-
-  const fetchProjects = async (companyId: string) => {
-    try {
-      const response = await projectsAPI.getAll(companyId);
-      setProjects(response.data);
-    } catch (error) {
-      console.error("Failed to fetch projects", error);
     }
   };
 
@@ -147,6 +144,7 @@ export function MainLayout({
       const newCompany = response.data;
       setCompanies([...companies, newCompany]);
       setActiveCompany(newCompany);
+      setActiveCompanyId(newCompany.id);
       setIsCompanyDialogOpen(false);
       setCompanyName("");
       setCompanyDescription("");
@@ -174,7 +172,7 @@ export function MainLayout({
       });
 
       const newProject = response.data;
-      setProjects([...projects, newProject]);
+      addProject(newProject);
       setIsProjectDialogOpen(false);
       setProjectName("");
       setProjectDescription("");
@@ -196,7 +194,12 @@ export function MainLayout({
     setIsProjectDialogOpen(true);
   };
 
-  if (isLoading) {
+  const selectCompany = (company: Company) => {
+    setActiveCompany(company);
+    setActiveCompanyId(company.id);
+  };
+
+  if (authLoading || projectsLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         Loading...
@@ -260,7 +263,7 @@ export function MainLayout({
                 <DropdownMenuItem
                   key={company.id}
                   onClick={() => {
-                    setActiveCompany(company);
+                    selectCompany(company);
                     if (window.location.pathname !== "/") {
                       navigate("/");
                     } // Navigate to homepage after changing company
@@ -458,7 +461,7 @@ export function MainLayout({
                           key={company.id}
                           variant="outline"
                           className="w-full justify-start"
-                          onClick={() => setActiveCompany(company)}
+                          onClick={() => selectCompany(company)}
                         >
                           <Briefcase className="mr-2 h-4 w-4" />
                           {company.name}

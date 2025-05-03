@@ -14,9 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-
-// Define the same localStorage key as in main-layout.tsx
-const ACTIVE_COMPANY_KEY = "todoapp-active-company";
+import { useProjects } from "@/contexts/projects-context";
 
 type Company = {
   id: string;
@@ -25,23 +23,16 @@ type Company = {
   imageUrl?: string;
 };
 
-type Project = {
-  id: string;
-  name: string;
-  description?: string;
-  companyId: string;
-  _count?: {
-    tasks: number;
-  };
-};
+export default function DashboardPage() {
+  const {
+    projects,
+    activeCompanyId,
+    setActiveCompanyId,
+    isLoading: projectsLoading,
+    addProject,
+  } = useProjects();
 
-export default function DashboardPage({
-  currentCompanyId,
-}: {
-  currentCompanyId: string | null;
-}) {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCompanyDialogOpen, setIsCompanyDialogOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
@@ -50,24 +41,6 @@ export default function DashboardPage({
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
-  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(
-    localStorage.getItem(ACTIVE_COMPANY_KEY) || null
-  );
-
-  // Synchronize activeCompanyId with currentCompanyId when it changes
-  useEffect(() => {
-    if (currentCompanyId) {
-      setActiveCompanyId(currentCompanyId);
-      localStorage.setItem(ACTIVE_COMPANY_KEY, currentCompanyId);
-    }
-  }, [currentCompanyId]);
-
-  // Update localStorage when activeCompanyId changes internally
-  useEffect(() => {
-    if (activeCompanyId) {
-      localStorage.setItem(ACTIVE_COMPANY_KEY, activeCompanyId);
-    }
-  }, [activeCompanyId]);
 
   // Initial data fetch - load companies and set first company as active
   useEffect(() => {
@@ -78,26 +51,18 @@ export default function DashboardPage({
 
         if (companiesRes.data.length > 0) {
           // If no company is active yet
-          if (!currentCompanyId && !activeCompanyId) {
+          if (!activeCompanyId) {
             const companyId = companiesRes.data[0].id;
             setActiveCompanyId(companyId);
-            const projectsRes = await projectsAPI.getAll(companyId);
-            setProjects(projectsRes.data);
-          } else if (activeCompanyId) {
+          } else {
             // Validate that the stored companyId still exists
             const companyExists = companiesRes.data.some(
               (company: Company) => company.id === activeCompanyId
             );
-            if (companyExists) {
-              const projectsRes = await projectsAPI.getAll(activeCompanyId);
-              setProjects(projectsRes.data);
-            } else {
+            if (!companyExists) {
               // If stored company doesn't exist anymore, use the first one
               const companyId = companiesRes.data[0].id;
               setActiveCompanyId(companyId);
-              localStorage.setItem(ACTIVE_COMPANY_KEY, companyId);
-              const projectsRes = await projectsAPI.getAll(companyId);
-              setProjects(projectsRes.data);
             }
           }
         }
@@ -110,27 +75,6 @@ export default function DashboardPage({
 
     fetchData();
   }, []);
-
-  // Single unified project fetch effect that responds to both activeCompanyId and currentCompanyId
-  useEffect(() => {
-    const fetchProjects = async () => {
-      // Use activeCompanyId which will be synchronized with currentCompanyId
-      const companyIdToUse = activeCompanyId;
-      if (!companyIdToUse) return;
-
-      try {
-        setIsLoading(true);
-        const projectsRes = await projectsAPI.getAll(companyIdToUse);
-        setProjects(projectsRes.data);
-      } catch (error) {
-        console.error("Failed to fetch projects", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProjects();
-  }, [activeCompanyId]);
 
   const handleCreateCompany = async () => {
     try {
@@ -150,9 +94,8 @@ export default function DashboardPage({
       const newCompany = response.data;
       setCompanies([...companies, newCompany]);
 
-      // Set as active company and store in localStorage
+      // Set as active company
       setActiveCompanyId(newCompany.id);
-      localStorage.setItem(ACTIVE_COMPANY_KEY, newCompany.id);
 
       setIsCompanyDialogOpen(false);
       setCompanyName("");
@@ -178,7 +121,8 @@ export default function DashboardPage({
         description: projectDescription,
       });
 
-      setProjects([...projects, response.data]);
+      // Use context to add the project
+      addProject(response.data);
       setIsProjectDialogOpen(false);
       setProjectName("");
       setProjectDescription("");
@@ -195,12 +139,12 @@ export default function DashboardPage({
     setIsProjectDialogOpen(true);
   };
 
-  // Use the activeCompanyId (which is now synchronized with currentCompanyId) to find the activeCompany
+  // Use the activeCompanyId to find the activeCompany
   const activeCompany = companies.find(
     (company) => company.id === activeCompanyId
   );
 
-  if (isLoading) {
+  if (isLoading || projectsLoading) {
     return (
       <div className="flex justify-center items-center h-full">Loading...</div>
     );
