@@ -37,6 +37,9 @@ import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "../ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
+// Add constant for localStorage key
+const ACTIVE_COMPANY_KEY = "todoapp-active-company";
+
 type Company = {
   id: string;
   name: string;
@@ -50,7 +53,11 @@ type Project = {
   companyId: string;
 };
 
-export function MainLayout() {
+export function MainLayout({
+  setCurrentCompany,
+}: {
+  setCurrentCompany: (company: string) => void;
+}) {
   const { user, logout, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -82,15 +89,30 @@ export function MainLayout() {
 
   useEffect(() => {
     if (activeCompany) {
+      localStorage.setItem(ACTIVE_COMPANY_KEY, activeCompany.id);
+      setCurrentCompany(activeCompany.id);
       fetchProjects(activeCompany.id);
     }
-  }, [activeCompany]);
+  }, [activeCompany, setCurrentCompany]);
 
   const fetchCompanies = async () => {
     try {
       const response = await companiesAPI.getAll();
       setCompanies(response.data);
+
       if (response.data.length > 0) {
+        const storedCompanyId = localStorage.getItem(ACTIVE_COMPANY_KEY);
+
+        if (storedCompanyId) {
+          const storedCompany = response.data.find(
+            (company: Company) => company.id === storedCompanyId
+          );
+          if (storedCompany) {
+            setActiveCompany(storedCompany);
+            return;
+          }
+        }
+
         setActiveCompany(response.data[0]);
       }
     } catch (error) {
@@ -215,8 +237,13 @@ export function MainLayout() {
               <Button variant="outline" className="w-full justify-start">
                 {activeCompany?.imageUrl ? (
                   <Avatar className="h-5 w-5 mr-2">
-                    <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
-                    <AvatarFallback><Briefcase className="h-4 w-4" /></AvatarFallback>
+                    <AvatarImage
+                      src={`${API_URL}${activeCompany.imageUrl}`}
+                      alt={activeCompany.name}
+                    />
+                    <AvatarFallback>
+                      <Briefcase className="h-4 w-4" />
+                    </AvatarFallback>
                   </Avatar>
                 ) : (
                   <Briefcase className="mr-2 h-4 w-4" />
@@ -234,12 +261,17 @@ export function MainLayout() {
                   key={company.id}
                   onClick={() => {
                     setActiveCompany(company);
-                    navigate("/"); // Navigate to homepage after changing company
+                    if (window.location.pathname !== "/") {
+                      navigate("/");
+                    } // Navigate to homepage after changing company
                   }}
                   className="flex items-center hover:cursor-pointer"
                 >
                   <Avatar className="h-6 w-6 mr-2">
-                    <AvatarImage src={`${API_URL}${company.imageUrl}`} alt={company.name} />
+                    <AvatarImage
+                      src={`${API_URL}${company.imageUrl}`}
+                      alt={company.name}
+                    />
                     <AvatarFallback>{company.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   {company.name}
@@ -272,7 +304,9 @@ export function MainLayout() {
               <>
                 <div key={project.id} className="flex flex-col space-y-1 mt-4">
                   <div
-                    className={`font-medium mb-2 ${!isNavigationOpen && "hidden"}`}
+                    className={`font-medium mb-2 ${
+                      !isNavigationOpen && "hidden"
+                    }`}
                   >
                     <Link
                       to={`/project-details/${project.id}`}
@@ -354,9 +388,7 @@ export function MainLayout() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => navigate('/user-settings')}
-              >
+              <DropdownMenuItem onClick={() => navigate("/user-settings")}>
                 <User className="mr-2 h-4 w-4" />
                 Profile Settings
               </DropdownMenuItem>
@@ -378,8 +410,13 @@ export function MainLayout() {
             {activeCompany && (
               <>
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
-                  <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
+                  <AvatarImage
+                    src={`${API_URL}${activeCompany.imageUrl}`}
+                    alt={activeCompany.name}
+                  />
+                  <AvatarFallback>
+                    {activeCompany.name.charAt(0)}
+                  </AvatarFallback>
                 </Avatar>
                 <h2 className="font-semibold">{activeCompany.name}</h2>
               </>
@@ -432,7 +469,7 @@ export function MainLayout() {
                 )}
               </div>
             </div>
-          ) : (!isProjectRoute && isUserSettingsRoute) ? (
+          ) : !isProjectRoute && isUserSettingsRoute ? (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">Projects</h1>
