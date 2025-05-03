@@ -11,40 +11,49 @@ import CompanySettingsPage from "@/pages/company-settings";
 import UserSettingsPage from "@/pages/user-settings";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ProtectedRoute } from "@/components/auth/protected-route";
+import { ProjectsProvider } from "./contexts/projects-context";
 
 // Create a root layout component that provides the auth context
-const AuthLayout = ({ children }: { children: React.ReactNode }) => {
-  return <AuthProvider>{children}</AuthProvider>;
+const AppLayout = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <AuthProvider>
+      <ProjectsProvider>{children}</ProjectsProvider>
+    </AuthProvider>
+  );
 };
 
+// Create a router function that accepts the state setter from the AppRouter component
 const router = createBrowserRouter([
   {
     element: (
-      <AuthLayout>
+      <AppLayout>
         <LoginPage />
-      </AuthLayout>
+      </AppLayout>
     ),
     path: "/login",
   },
   {
     element: (
-      <AuthLayout>
+      <AppLayout>
         <RegisterPage />
-      </AuthLayout>
+      </AppLayout>
     ),
     path: "/register",
   },
   {
     path: "/",
     element: (
-      <AuthLayout>
+      <AppLayout>
         <ProtectedRoute>
           <MainLayout />
         </ProtectedRoute>
-      </AuthLayout>
+      </AppLayout>
     ),
     children: [
-      { index: true, element: <DashboardPage /> },
+      {
+        index: true,
+        element: <DashboardPage />,
+      },
       { path: "kanban/:projectId", element: <KanbanPage /> },
       { path: "calendar/:projectId", element: <CalendarPage /> },
       { path: "database/:projectId", element: <DatabasePage /> },

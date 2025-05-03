@@ -3,10 +3,18 @@ import { Link } from "react-router-dom";
 import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Plus, FolderKanban, Database, Calendar } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useProjects } from "@/contexts/projects-context";
 
 type Company = {
   id: string;
@@ -15,19 +23,16 @@ type Company = {
   imageUrl?: string;
 };
 
-type Project = {
-  id: string;
-  name: string;
-  description?: string;
-  companyId: string;
-  _count?: {
-    tasks: number;
-  };
-};
-
 export default function DashboardPage() {
+  const {
+    projects,
+    activeCompanyId,
+    setActiveCompanyId,
+    isLoading: projectsLoading,
+    addProject,
+  } = useProjects();
+
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCompanyDialogOpen, setIsCompanyDialogOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
@@ -36,8 +41,8 @@ export default function DashboardPage() {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
-  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
 
+  // Initial data fetch - load companies and set first company as active
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -45,10 +50,21 @@ export default function DashboardPage() {
         setCompanies(companiesRes.data);
 
         if (companiesRes.data.length > 0) {
-          const companyId = companiesRes.data[0].id;
-          setActiveCompanyId(companyId);
-          const projectsRes = await projectsAPI.getAll(companyId);
-          setProjects(projectsRes.data);
+          // If no company is active yet
+          if (!activeCompanyId) {
+            const companyId = companiesRes.data[0].id;
+            setActiveCompanyId(companyId);
+          } else {
+            // Validate that the stored companyId still exists
+            const companyExists = companiesRes.data.some(
+              (company: Company) => company.id === activeCompanyId
+            );
+            if (!companyExists) {
+              // If stored company doesn't exist anymore, use the first one
+              const companyId = companiesRes.data[0].id;
+              setActiveCompanyId(companyId);
+            }
+          }
         }
       } catch (error) {
         console.error("Failed to fetch data", error);
@@ -64,7 +80,10 @@ export default function DashboardPage() {
     try {
       setCreateError(null);
       setIsLoading(true);
-      console.log("Creating company:", { name: companyName, description: companyDescription });
+      console.log("Creating company:", {
+        name: companyName,
+        description: companyDescription,
+      });
 
       const response = await companiesAPI.create({
         name: companyName,
@@ -72,13 +91,21 @@ export default function DashboardPage() {
       });
 
       console.log("Company created successfully:", response.data);
-      setCompanies([...companies, response.data]);
+      const newCompany = response.data;
+      setCompanies([...companies, newCompany]);
+
+      // Set as active company
+      setActiveCompanyId(newCompany.id);
+
       setIsCompanyDialogOpen(false);
       setCompanyName("");
       setCompanyDescription("");
     } catch (error: any) {
       console.error("Failed to create company", error);
-      setCreateError(error.response?.data?.message || "Failed to create company. Please try again.");
+      setCreateError(
+        error.response?.data?.message ||
+          "Failed to create company. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +121,8 @@ export default function DashboardPage() {
         description: projectDescription,
       });
 
-      setProjects([...projects, response.data]);
+      // Use context to add the project
+      addProject(response.data);
       setIsProjectDialogOpen(false);
       setProjectName("");
       setProjectDescription("");
@@ -111,10 +139,15 @@ export default function DashboardPage() {
     setIsProjectDialogOpen(true);
   };
 
-  const activeCompany = companies.find(company => company.id === activeCompanyId);
+  // Use the activeCompanyId to find the activeCompany
+  const activeCompany = companies.find(
+    (company) => company.id === activeCompanyId
+  );
 
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-full">Loading...</div>;
+  if (isLoading || projectsLoading) {
+    return (
+      <div className="flex justify-center items-center h-full">Loading...</div>
+    );
   }
 
   return (
@@ -126,7 +159,10 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">|</span>
               <Avatar className="h-8 w-8">
-                <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
+                <AvatarImage
+                  src={`${API_URL}${activeCompany.imageUrl}`}
+                  alt={activeCompany.name}
+                />
                 <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <span className="font-medium">{activeCompany.name}</span>
@@ -166,19 +202,29 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
-            <div key={project.id} className="bg-card border border-border rounded-lg overflow-hidden">
+            <div
+              key={project.id}
+              className="bg-card border border-border rounded-lg overflow-hidden"
+            >
               <div className="p-4">
                 <div className="flex items-center gap-3 mb-2">
                   {activeCompany && (
                     <Avatar className="h-6 w-6">
-                      <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
-                      <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage
+                        src={`${API_URL}${activeCompany.imageUrl}`}
+                        alt={activeCompany.name}
+                      />
+                      <AvatarFallback>
+                        {activeCompany.name.charAt(0)}
+                      </AvatarFallback>
                     </Avatar>
                   )}
                   <h3 className="text-lg font-semibold">{project.name}</h3>
                 </div>
                 {project.description && (
-                  <p className="text-muted-foreground text-sm mt-1">{project.description}</p>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    {project.description}
+                  </p>
                 )}
                 <div className="mt-2 text-sm text-muted-foreground">
                   {project._count?.tasks || 0} tasks
@@ -245,17 +291,24 @@ export default function DashboardPage() {
                 placeholder="Enter company description"
               />
             </div>
-            
+
             <p className="text-sm text-muted-foreground">
               You can add a company logo in the company settings after creation.
             </p>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCompanyDialogOpen(false)} disabled={isLoading}>
+            <Button
+              variant="outline"
+              onClick={() => setIsCompanyDialogOpen(false)}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCreateCompany} disabled={!companyName.trim() || isLoading}>
+            <Button
+              onClick={handleCreateCompany}
+              disabled={!companyName.trim() || isLoading}
+            >
               {isLoading ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>
@@ -268,15 +321,24 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
             <DialogDescription>
-              Add a new project to {activeCompany ? (
+              Add a new project to{" "}
+              {activeCompany ? (
                 <span className="flex items-center gap-2 inline-flex">
                   <Avatar className="h-5 w-5 inline">
-                    <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
-                    <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage
+                      src={`${API_URL}${activeCompany.imageUrl}`}
+                      alt={activeCompany.name}
+                    />
+                    <AvatarFallback>
+                      {activeCompany.name.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                   {activeCompany.name}
                 </span>
-              ) : "your company"}.
+              ) : (
+                "your company"
+              )}
+              .
             </DialogDescription>
           </DialogHeader>
 
@@ -309,10 +371,16 @@ export default function DashboardPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsProjectDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsProjectDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCreateProject} disabled={!projectName.trim()}>
+            <Button
+              onClick={handleCreateProject}
+              disabled={!projectName.trim()}
+            >
               Create
             </Button>
           </DialogFooter>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
+import { useProjects } from "@/contexts/projects-context";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
@@ -37,6 +38,9 @@ import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "../ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
+// Add constant for localStorage key
+const ACTIVE_COMPANY_KEY = "todoapp-active-company";
+
 type Company = {
   id: string;
   name: string;
@@ -51,7 +55,14 @@ type Project = {
 };
 
 export function MainLayout() {
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
+  const {
+    projects,
+    activeCompanyId,
+    setActiveCompanyId,
+    isLoading: projectsLoading,
+    addProject,
+  } = useProjects();
   const navigate = useNavigate();
   const location = useLocation();
   const isProjectRoute =
@@ -63,7 +74,6 @@ export function MainLayout() {
   const isUserSettingsRoute = location.pathname.includes("/user-settings/");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [activeCompany, setActiveCompany] = useState<Company | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [isNavigationOpen, setIsNavigationOpen] = useState(true);
   const [companyName, setCompanyName] = useState("");
   const [companyDescription, setCompanyDescription] = useState("");
@@ -81,29 +91,38 @@ export function MainLayout() {
   }, [user]);
 
   useEffect(() => {
-    if (activeCompany) {
-      fetchProjects(activeCompany.id);
+    if (activeCompanyId && companies.length > 0) {
+      const company = companies.find((c) => c.id === activeCompanyId);
+      if (company) {
+        setActiveCompany(company);
+      }
     }
-  }, [activeCompany]);
+  }, [activeCompanyId, companies]);
 
   const fetchCompanies = async () => {
     try {
       const response = await companiesAPI.getAll();
       setCompanies(response.data);
+
       if (response.data.length > 0) {
+        const storedCompanyId = localStorage.getItem(ACTIVE_COMPANY_KEY);
+
+        if (storedCompanyId) {
+          const storedCompany = response.data.find(
+            (company: Company) => company.id === storedCompanyId
+          );
+          if (storedCompany) {
+            setActiveCompany(storedCompany);
+            setActiveCompanyId(storedCompany.id);
+            return;
+          }
+        }
+
         setActiveCompany(response.data[0]);
+        setActiveCompanyId(response.data[0].id);
       }
     } catch (error) {
       console.error("Failed to fetch companies", error);
-    }
-  };
-
-  const fetchProjects = async (companyId: string) => {
-    try {
-      const response = await projectsAPI.getAll(companyId);
-      setProjects(response.data);
-    } catch (error) {
-      console.error("Failed to fetch projects", error);
     }
   };
 
@@ -125,6 +144,7 @@ export function MainLayout() {
       const newCompany = response.data;
       setCompanies([...companies, newCompany]);
       setActiveCompany(newCompany);
+      setActiveCompanyId(newCompany.id);
       setIsCompanyDialogOpen(false);
       setCompanyName("");
       setCompanyDescription("");
@@ -152,7 +172,7 @@ export function MainLayout() {
       });
 
       const newProject = response.data;
-      setProjects([...projects, newProject]);
+      addProject(newProject);
       setIsProjectDialogOpen(false);
       setProjectName("");
       setProjectDescription("");
@@ -174,7 +194,12 @@ export function MainLayout() {
     setIsProjectDialogOpen(true);
   };
 
-  if (isLoading) {
+  const selectCompany = (company: Company) => {
+    setActiveCompany(company);
+    setActiveCompanyId(company.id);
+  };
+
+  if (authLoading || projectsLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         Loading...
@@ -215,8 +240,13 @@ export function MainLayout() {
               <Button variant="outline" className="w-full justify-start">
                 {activeCompany?.imageUrl ? (
                   <Avatar className="h-5 w-5 mr-2">
-                    <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
-                    <AvatarFallback><Briefcase className="h-4 w-4" /></AvatarFallback>
+                    <AvatarImage
+                      src={`${API_URL}${activeCompany.imageUrl}`}
+                      alt={activeCompany.name}
+                    />
+                    <AvatarFallback>
+                      <Briefcase className="h-4 w-4" />
+                    </AvatarFallback>
                   </Avatar>
                 ) : (
                   <Briefcase className="mr-2 h-4 w-4" />
@@ -233,13 +263,18 @@ export function MainLayout() {
                 <DropdownMenuItem
                   key={company.id}
                   onClick={() => {
-                    setActiveCompany(company);
-                    navigate("/"); // Navigate to homepage after changing company
+                    selectCompany(company);
+                    if (window.location.pathname !== "/") {
+                      navigate("/");
+                    } // Navigate to homepage after changing company
                   }}
                   className="flex items-center hover:cursor-pointer"
                 >
                   <Avatar className="h-6 w-6 mr-2">
-                    <AvatarImage src={`${API_URL}${company.imageUrl}`} alt={company.name} />
+                    <AvatarImage
+                      src={`${API_URL}${company.imageUrl}`}
+                      alt={company.name}
+                    />
                     <AvatarFallback>{company.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   {company.name}
@@ -272,7 +307,9 @@ export function MainLayout() {
               <>
                 <div key={project.id} className="flex flex-col space-y-1 mt-4">
                   <div
-                    className={`font-medium mb-2 ${!isNavigationOpen && "hidden"}`}
+                    className={`font-medium mb-2 ${
+                      !isNavigationOpen && "hidden"
+                    }`}
                   >
                     <Link
                       to={`/project-details/${project.id}`}
@@ -354,9 +391,7 @@ export function MainLayout() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => navigate('/user-settings')}
-              >
+              <DropdownMenuItem onClick={() => navigate("/user-settings")}>
                 <User className="mr-2 h-4 w-4" />
                 Profile Settings
               </DropdownMenuItem>
@@ -378,8 +413,13 @@ export function MainLayout() {
             {activeCompany && (
               <>
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={`${API_URL}${activeCompany.imageUrl}`} alt={activeCompany.name} />
-                  <AvatarFallback>{activeCompany.name.charAt(0)}</AvatarFallback>
+                  <AvatarImage
+                    src={`${API_URL}${activeCompany.imageUrl}`}
+                    alt={activeCompany.name}
+                  />
+                  <AvatarFallback>
+                    {activeCompany.name.charAt(0)}
+                  </AvatarFallback>
                 </Avatar>
                 <h2 className="font-semibold">{activeCompany.name}</h2>
               </>
@@ -421,7 +461,7 @@ export function MainLayout() {
                           key={company.id}
                           variant="outline"
                           className="w-full justify-start"
-                          onClick={() => setActiveCompany(company)}
+                          onClick={() => selectCompany(company)}
                         >
                           <Briefcase className="mr-2 h-4 w-4" />
                           {company.name}
@@ -432,7 +472,7 @@ export function MainLayout() {
                 )}
               </div>
             </div>
-          ) : (!isProjectRoute && isUserSettingsRoute) ? (
+          ) : !isProjectRoute && isUserSettingsRoute ? (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">Projects</h1>
