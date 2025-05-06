@@ -36,6 +36,7 @@ const taskSchema = z.object({
   status: z.enum(["TODO", "IN_PROGRESS", "REVIEW", "DONE"]),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
   dueDate: z.string().optional(),
+  startDate: z.string().optional(),
 });
 
 type TaskFormValues = z.infer<typeof taskSchema>;
@@ -48,6 +49,7 @@ interface TaskFormProps {
     status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
     priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
     dueDate?: string;
+    startDate?: string;
     tags?: Tag[];
   };
   open: boolean;
@@ -59,6 +61,7 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const { projectId = "" } = useParams<{ projectId: string }>();
   const [date, setDate] = useState<Date | undefined>(undefined);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
 
   const { register, handleSubmit, reset, formState, setValue, watch } = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
@@ -68,19 +71,25 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
       status: task?.status || "TODO",
       priority: task?.priority || "MEDIUM",
       dueDate: task?.dueDate || "",
+      startDate: task?.startDate || "",
     },
   });
 
   useEffect(() => {
     if (open) {
-      // Format the date properly for HTML date input (YYYY-MM-DD)
-      let formattedDate = "";
+      let formattedDueDate = "";
+      let formattedStartDate = "";
       if (task?.dueDate) {
-        // Extract just the YYYY-MM-DD part from the date string
-        formattedDate = task.dueDate.split('T')[0];
-        setDate(new Date(formattedDate));
+        formattedDueDate = task.dueDate.split('T')[0];
+        setDate(new Date(formattedDueDate));
       } else {
         setDate(undefined);
+      }
+      if (task?.startDate) {
+        formattedStartDate = task.startDate.split('T')[0];
+        setStartDate(new Date(formattedStartDate));
+      } else {
+        setStartDate(undefined);
       }
       
       reset({
@@ -88,7 +97,8 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
         description: task?.description || "",
         status: task?.status || "TODO",
         priority: task?.priority || "MEDIUM",
-        dueDate: formattedDate,
+        dueDate: formattedDueDate,
+        startDate: formattedStartDate,
       });
       setSelectedTags(task?.tags || []);
     }
@@ -96,11 +106,14 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
 
   const processSubmit = (values: TaskFormValues) => {
     const tagIds = selectedTags.map(tag => tag.id);
-    onSubmit({ ...values, tagIds });
+    onSubmit({ 
+      ...values, 
+      tagIds,
+      startDate: values.startDate || format(new Date(), "yyyy-MM-dd")
+    });
     onClose();
   };
 
-  // Update form value when date changes
   const onDateChange = (selectedDate: Date | undefined) => {
     setDate(selectedDate);
     if (selectedDate) {
@@ -110,7 +123,17 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
     }
   };
 
+  const onStartDateChange = (selectedDate: Date | undefined) => {
+    setStartDate(selectedDate);
+    if (selectedDate) {
+      setValue("startDate", format(selectedDate, "yyyy-MM-dd"));
+    } else {
+      setValue("startDate", "");
+    }
+  };
+
   const dueDate = watch("dueDate");
+  const startDateValue = watch("startDate");
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -211,6 +234,41 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
                     mode="single"
                     selected={date}
                     onSelect={onDateChange}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="startDate" className="text-sm font-medium">
+              Start Date
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="startDate"
+                type="date"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                {...register("startDate")}
+              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-10 p-0",
+                      !startDateValue && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={onStartDateChange}
                     initialFocus
                   />
                 </PopoverContent>

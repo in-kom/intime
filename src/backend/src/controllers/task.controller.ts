@@ -140,7 +140,7 @@ export const createTask = async (req: Request, res: Response) => {
 // Update task
 export const updateTask = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { title, description, status, priority, dueDate, tagIds } = req.body;
+  const { title, description, status, priority, dueDate, tagIds, startDate } = req.body;
 
   // Check if task exists and user has access
   const task = await prisma.task.findUnique({
@@ -187,6 +187,7 @@ export const updateTask = async (req: Request, res: Response) => {
       status: status as Status,
       priority: priority as Priority,
       dueDate: dueDate ? new Date(dueDate) : undefined,
+      startDate: startDate ? new Date(startDate) : undefined,
       tags: {
         disconnect: currentTask?.tags.map(tag => ({ id: tag.id })),
         connect: tagIds ? tagIds.map((id: string) => ({ id })) : []

@@ -33,6 +33,7 @@ import {
   Building2,
   Calendar,
   Settings,
+  GanttChart,
 } from "lucide-react";
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "../ui/separator";
@@ -67,6 +68,7 @@ export function MainLayout() {
   const location = useLocation();
   const isProjectRoute =
     location.pathname.includes("/calendar/") ||
+    location.pathname.includes("/gantt/") ||
     location.pathname.includes("/kanban/") ||
     location.pathname.includes("/project-details/") ||
     location.pathname.includes("/company-settings/") ||
@@ -352,6 +354,15 @@ export function MainLayout() {
                         <span className="ml-2">Database</span>
                       )}
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => navigate(`/gantt/${project.id}`)}
+                    >
+                      <GanttChart className="h-4 w-4" />
+                      {isNavigationOpen && <span className="ml-2">Gantt</span>}
+                    </Button>
                   </div>
                 </div>
                 <Separator />
@@ -530,6 +541,13 @@ export function MainLayout() {
                         >
                           <Database className="mr-2 h-4 w-4" />
                           Database
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/gantt/${project.id}`)}
+                        >
+                          <GanttChart className="mr-2 h-4 w-4" />
+                          Gantt
                         </Button>
                       </CardFooter>
                     </Card>

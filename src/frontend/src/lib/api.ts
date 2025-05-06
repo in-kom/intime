@@ -1,6 +1,7 @@
 import axios from "axios";
 
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+export const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -26,31 +27,31 @@ export const authAPI = {
     api.post("/auth/register", { name, email, password }),
   getMe: () => api.get("/auth/me"),
   updateProfile: (data: { name: string; email: string }) => {
-    return axios.put('/users/profile', data);
+    return axios.put("/users/profile", data);
   },
   changePassword: (data: { currentPassword: string; newPassword: string }) => {
-    return api.post('/auth/change-password', data);
+    return api.post("/auth/change-password", data);
   },
   uploadImage: (file: File) => {
     const formData = new FormData();
-    formData.append('image', file);
-    return api.post('/users/image', formData, {
+    formData.append("image", file);
+    return api.post("/users/image", formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
   },
   updateImage: (file: File) => {
     const formData = new FormData();
-    formData.append('image', file);
-    return api.put('/users/image', formData, {
+    formData.append("image", file);
+    return api.put("/users/image", formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
   },
   deleteImage: () => {
-    return api.delete('/users/image');
+    return api.delete("/users/image");
   },
 };
 
@@ -70,20 +71,20 @@ export const companiesAPI = {
   // New image-related methods
   uploadImage: (id: string, imageFile: File) => {
     const formData = new FormData();
-    formData.append('image', imageFile);
+    formData.append("image", imageFile);
     return api.post(`/companies/${id}/image`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+        "Content-Type": "multipart/form-data",
+      },
     });
   },
   updateImage: (id: string, imageFile: File) => {
     const formData = new FormData();
-    formData.append('image', imageFile);
+    formData.append("image", imageFile);
     return api.put(`/companies/${id}/image`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+        "Content-Type": "multipart/form-data",
+      },
     });
   },
   deleteImage: (id: string) => api.delete(`/companies/${id}/image`),
@@ -101,31 +102,46 @@ export const projectsAPI = {
 };
 
 // Tasks API
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  dueDate?: string;
+  startDate?: string;
+  tags?: Tag[];
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface TaskCreateUpdatePayload {
+  title?: string;
+  description?: string;
+  status?: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+  priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  dueDate?: string;
+  tagIds?: string[];
+  startDate?: string;
+}
+
 export const tasksAPI = {
-  getAll: (projectId: string) => api.get(`/tasks/project/${projectId}`),
-  getById: (id: string) => api.get(`/tasks/${id}`),
-  create: (
-    projectId: string,
-    data: {
-      title: string;
-      description?: string;
-      status?: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
-      priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-      dueDate?: string;
-      tagIds?: string[];
-    }
-  ) => api.post(`/tasks/project/${projectId}`, data),
-  update: (
-    id: string,
-    data: {
-      title?: string;
-      description?: string;
-      status?: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
-      priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-      dueDate?: string;
-      tagIds?: string[];
-    }
-  ) => api.put(`/tasks/${id}`, data),
+  getAll: (projectId: string) => api.get<Task[]>(`/tasks/project/${projectId}`),
+  getById: (id: string) => api.get<Task>(`/tasks/${id}`),
+  create: (projectId: string, data: TaskCreateUpdatePayload) =>
+    api.post<Task>(`/tasks/project/${projectId}`, {
+      ...data,
+      startDate: data.startDate || new Date().toISOString(),
+    }),
+  update: (id: string, data: TaskCreateUpdatePayload) =>
+    api.put<Task>(`/tasks/${id}`, {
+      ...data,
+      ...(data.startDate && { startDate: data.startDate }),
+    }),
   delete: (id: string) => api.delete(`/tasks/${id}`),
 };
 
@@ -141,12 +157,17 @@ export const tagsAPI = {
 
 // Project Details API
 export const projectDetailsAPI = {
-  getAll: (projectId: string) => api.get(`/project-details/project/${projectId}`),
+  getAll: (projectId: string) =>
+    api.get(`/project-details/project/${projectId}`),
   getById: (id: string) => api.get(`/project-details/${id}`),
-  create: (projectId: string, data: { title: string; url: string; description?: string }) =>
-    api.post(`/project-details/project/${projectId}`, data),
-  update: (id: string, data: { title?: string; url?: string; description?: string }) =>
-    api.put(`/project-details/${id}`, data),
+  create: (
+    projectId: string,
+    data: { title: string; url: string; description?: string }
+  ) => api.post(`/project-details/project/${projectId}`, data),
+  update: (
+    id: string,
+    data: { title?: string; url?: string; description?: string }
+  ) => api.put(`/project-details/${id}`, data),
   delete: (id: string) => api.delete(`/project-details/${id}`),
 };
 

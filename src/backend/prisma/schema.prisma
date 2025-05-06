@@ -52,6 +52,7 @@ model Task {
   status      Status   @default(TODO)
   priority    Priority @default(MEDIUM)
   dueDate     DateTime?
+  startDate   DateTime @default(now())  // Add startDate field with default
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   projectId   String
