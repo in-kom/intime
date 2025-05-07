@@ -61,7 +61,7 @@ export const GanttView = forwardRef(function GanttView(
   });
   const [timelineWidth] = useState(1000);
   const [showActual, setShowActual] = useState(true);
-  const [showSummary, setShowSummary] = useState(true);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Expose the refreshTasks method via ref
   useImperativeHandle(ref, () => ({
@@ -158,14 +158,24 @@ export const GanttView = forwardRef(function GanttView(
     // Check if planned dates overlap with the visible timeframe
     const isPlanVisible = startDate <= viewRange.end && endDate >= viewRange.start;
 
-    // Calculate positions for planned timeline
-    const planStartOffset = Math.max(
-      0,
-      differenceInDays(startDate, viewRange.start)
-    );
-
-    const planDuration = Math.max(1, differenceInDays(endDate, startDate) + 1);
-    const planVisibleDuration = Math.min(planDuration, totalDays - planStartOffset);
+    // Calculate exact position based on dates, not day differences
+    // This ensures tasks appear precisely on their start and end dates
+    const daysInView = days.map(d => format(d, 'yyyy-MM-dd'));
+    
+    // Find the index of the task's start date in the view
+    const startDateStr = format(startDate, 'yyyy-MM-dd');
+    const endDateStr = format(endDate, 'yyyy-MM-dd');
+    
+    // Calculate start position - if start date is before view range, position at beginning
+    const startIndex = Math.max(0, daysInView.indexOf(startDateStr));
+    const planStartOffset = startIndex;
+    
+    // Calculate end position - if end date is after view range, cap at view end
+    const endIndex = daysInView.indexOf(endDateStr);
+    const endPosition = endIndex === -1 ? daysInView.length - 1 : endIndex;
+    
+    // Calculate width based on the precise start and end positions
+    const planVisibleDuration = endPosition - startIndex + 1;
 
     // Calculate positions for actual timeline (if available)
     let actualData = null;
@@ -206,13 +216,20 @@ export const GanttView = forwardRef(function GanttView(
       if (isActualVisible) {
         const actualEndDateToUse = actualEndDate || today;
 
-        const actualStartOffset = Math.max(
-          0,
-          differenceInDays(actualStartDate, viewRange.start)
-        );
-
-        const actualDuration = Math.max(1, differenceInDays(actualEndDateToUse, actualStartDate) + 1);
-        const actualVisibleDuration = Math.min(actualDuration, totalDays - actualStartOffset);
+        // Calculate actual timeline position using the same date-precise method
+        const actualStartDateStr = format(actualStartDate, 'yyyy-MM-dd');
+        const actualEndDateStr = format(actualEndDateToUse, 'yyyy-MM-dd');
+        
+        // Find start position - if before view range, position at beginning
+        const actualStartIndex = Math.max(0, daysInView.indexOf(actualStartDateStr));
+        const actualStartOffset = actualStartIndex;
+        
+        // Find end position - if after view range, cap at view end
+        const actualEndIndex = daysInView.indexOf(actualEndDateStr);
+        const actualEndPosition = actualEndIndex === -1 ? daysInView.length - 1 : actualEndIndex;
+        
+        // Calculate width for actual timeline
+        const actualVisibleDuration = actualEndPosition - actualStartIndex + 1;
 
         const startDelay = differenceInDays(actualStartDate, startDate);
         const endDelay = actualEndDate
