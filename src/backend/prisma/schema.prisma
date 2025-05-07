@@ -33,42 +33,44 @@ model Company {
 }
 
 model Project {
-  id          String   @id @default(uuid())
+  id          String          @id @default(uuid())
   name        String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   tasks       Task[]
   tags        Tag[]
   details     ProjectDetail[] // Add this line to connect project details
 }
 
 model Task {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  status      Status   @default(TODO)
-  priority    Priority @default(MEDIUM)
-  dueDate     DateTime?
-  startDate   DateTime @default(now())  // Add startDate field with default
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tags        Tag[]    @relation("TaskToTag")
+  id              String    @id @default(uuid())
+  title           String
+  description     String?
+  status          Status    @default(TODO)
+  priority        Priority  @default(MEDIUM)
+  dueDate         DateTime?
+  startDate       DateTime  @default(now())
+  actualStartDate DateTime?
+  actualEndDate   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  projectId       String
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tags            Tag[]     @relation("TaskToTag")
 }
 
 model Tag {
-  id          String   @id @default(uuid())
-  name        String
-  color       String   @default("#3b82f6") // Default blue color
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks       Task[]   @relation("TaskToTag")
+  id        String   @id @default(uuid())
+  name      String
+  color     String   @default("#3b82f6") // Default blue color
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     Task[]   @relation("TaskToTag")
 }
 
 enum Status {

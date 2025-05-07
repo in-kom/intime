@@ -115,6 +115,14 @@ export const createTask = async (req: Request, res: Response) => {
     throw new AppError('Not authorized to create tasks in this project', 403);
   }
 
+  // Set actual start date if task is created with IN_PROGRESS, REVIEW, or DONE status
+  const actualStartDate = (status === 'IN_PROGRESS' || status === 'REVIEW' || status === 'DONE') 
+    ? new Date() 
+    : undefined;
+    
+  // Set actual end date if task is created with DONE status
+  const actualEndDate = status === 'DONE' ? new Date() : undefined;
+
   const task = await prisma.task.create({
     data: {
       title,
@@ -127,7 +135,9 @@ export const createTask = async (req: Request, res: Response) => {
       },
       tags: tagIds && tagIds.length > 0 ? {
         connect: tagIds.map((id: string) => ({ id }))
-      } : undefined
+      } : undefined,
+      actualStartDate,
+      actualEndDate
     },
     include: {
       tags: true
@@ -179,6 +189,25 @@ export const updateTask = async (req: Request, res: Response) => {
     include: { tags: true }
   });
 
+  // Determine if we need to update the actual start/end dates based on status changes
+  let actualStartDate = undefined;
+  let actualEndDate = undefined;
+
+  // If status is changing to IN_PROGRESS and there's no actualStartDate yet, set it
+  if (status === 'IN_PROGRESS' && task.status !== 'IN_PROGRESS' && task.status !== 'REVIEW' && task.status !== 'DONE') {
+    actualStartDate = new Date();
+  }
+
+  // If status is changing to DONE, set the actualEndDate
+  if (status === 'DONE' && task.status !== 'DONE') {
+    actualEndDate = new Date();
+    
+    // If task doesn't have an actualStartDate yet (rare case), also set that
+    if (!task.actualStartDate) {
+      actualStartDate = new Date();
+    }
+  }
+
   const updatedTask = await prisma.task.update({
     where: { id },
     data: {
@@ -188,6 +217,9 @@ export const updateTask = async (req: Request, res: Response) => {
       priority: priority as Priority,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       startDate: startDate ? new Date(startDate) : undefined,
+      // Only include these fields in the update if they need to change
+      ...(actualStartDate && { actualStartDate }),
+      ...(actualEndDate && { actualEndDate }),
       tags: {
         disconnect: currentTask?.tags.map(tag => ({ id: tag.id })),
         connect: tagIds ? tagIds.map((id: string) => ({ id })) : []
