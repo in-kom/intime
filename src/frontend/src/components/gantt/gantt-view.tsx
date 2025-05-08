@@ -1,4 +1,9 @@
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import {
+  useState,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   format,
   parseISO,
@@ -64,6 +69,12 @@ interface Task {
   actualStartDate?: string;
   actualEndDate?: string;
   tags?: Tag[];
+  dependencies?: Task[];
+  dependencyFor?: Task[];
+  parent?: Task | null;
+  parentId?: string | null;
+  subtasks?: Task[];
+  _isDependencyOf?: string; // Added optional property
 }
 
 interface GanttViewProps {
@@ -92,6 +103,7 @@ export const GanttView = forwardRef(function GanttView(
     from: viewRange.start,
     to: viewRange.end,
   });
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   // Expose the refreshTasks method via ref
   useImperativeHandle(ref, () => ({
@@ -140,7 +152,10 @@ export const GanttView = forwardRef(function GanttView(
     });
   };
 
-  const handleCustomPeriod = (period: number, unit: "days" | "weeks" | "months") => {
+  const handleCustomPeriod = (
+    period: number,
+    unit: "days" | "weeks" | "months"
+  ) => {
     const today = new Date();
     let end;
 
@@ -179,6 +194,18 @@ export const GanttView = forwardRef(function GanttView(
     setShowSummary(!showSummary);
   };
 
+  const toggleTaskExpansion = (taskId: string) => {
+    setExpandedTasks((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
   const getDaysArray = () => {
     const days = [];
     const totalDays = differenceInDays(viewRange.end, viewRange.start);
@@ -188,12 +215,74 @@ export const GanttView = forwardRef(function GanttView(
     return days;
   };
 
+  const getVisibleTasks = () => {
+    // Use a recursive approach to maintain proper hierarchy
+    const result: Task[] = [];
+
+    // Process a task and its descendants if expanded
+    const processTask = (task: Task) => {
+      result.push(task);
+
+      // If task is expanded, add its subtasks immediately after
+      if (expandedTasks.has(task.id)) {
+        // Process all subtasks first (maintaining hierarchy)
+        if (task.subtasks && task.subtasks.length > 0) {
+          task.subtasks.forEach((subtask) => {
+            processTask(subtask);
+          });
+        }
+
+        // Then add dependencies after all subtasks
+        if (task.dependencies && task.dependencies.length > 0) {
+          task.dependencies.forEach((dependency) => {
+            // Add dependency with flag for styling
+            result.push({
+              ...dependency,
+              _isDependencyOf: task.id,
+            });
+          });
+        }
+      }
+    };
+
+    // Start with top-level tasks
+    const topLevelTasks = tasks.filter((task) => !task.parentId);
+    topLevelTasks.forEach((task) => {
+      processTask(task);
+    });
+
+    return result;
+  };
+
+  const getTaskIndent = (task: Task) => {
+    // For normal parent-child hierarchy
+    if (task.parentId) {
+      let level = 0;
+      let currentTask = task;
+
+      while (currentTask.parentId) {
+        level++;
+        const parent = tasks.find((t) => t.id === currentTask.parentId);
+        if (!parent) break;
+        currentTask = parent;
+      }
+
+      return level * 16;
+    }
+
+    // For dependencies
+    if ((task as any)._isDependencyOf) {
+      return 16; // Single level indent for dependencies
+    }
+
+    return 0;
+  };
+
   const getTaskBar = (task: Task) => {
     const days = getDaysArray();
     const totalDays = days.length;
     const dayWidth = timelineWidth / totalDays;
 
-    // Determine planned start and end dates for the task
     const startDate = task.startDate
       ? parseISO(task.startDate)
       : viewRange.start;
@@ -204,7 +293,6 @@ export const GanttView = forwardRef(function GanttView(
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
 
-    // Determine actual start and end dates
     const actualStartDate = task.actualStartDate
       ? parseISO(task.actualStartDate)
       : null;
@@ -216,30 +304,22 @@ export const GanttView = forwardRef(function GanttView(
     if (actualStartDate) actualStartDate.setHours(0, 0, 0, 0);
     if (actualEndDate) actualEndDate.setHours(0, 0, 0, 0);
 
-    // Check if planned dates overlap with the visible timeframe
     const isPlanVisible =
       startDate <= viewRange.end && endDate >= viewRange.start;
 
-    // Calculate exact position based on dates, not day differences
-    // This ensures tasks appear precisely on their start and end dates
     const daysInView = days.map((d) => format(d, "yyyy-MM-dd"));
 
-    // Find the index of the task's start date in the view
     const startDateStr = format(startDate, "yyyy-MM-dd");
     const endDateStr = format(endDate, "yyyy-MM-dd");
 
-    // Calculate start position - if start date is before view range, position at beginning
     const startIndex = Math.max(0, daysInView.indexOf(startDateStr));
     const planStartOffset = startIndex;
 
-    // Calculate end position - if end date is after view range, cap at view end
     const endIndex = daysInView.indexOf(endDateStr);
     const endPosition = endIndex === -1 ? daysInView.length - 1 : endIndex;
 
-    // Calculate width based on the precise start and end positions
     const planVisibleDuration = endPosition - startIndex + 1;
 
-    // Calculate positions for actual timeline (if available)
     let actualData = null;
     let completionPercentage = 0;
     let isDelayed = false;
@@ -249,7 +329,6 @@ export const GanttView = forwardRef(function GanttView(
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Calculate how much of the task should be complete by now (based on plan)
       const totalPlannedDays = differenceInDays(endDate, startDate) + 1;
       const daysElapsedSinceStart =
         differenceInDays(
@@ -264,15 +343,12 @@ export const GanttView = forwardRef(function GanttView(
         )
       );
 
-      // Calculate actual completion
       if (actualEndDate) {
-        completionPercentage = 100; // Task is done
+        completionPercentage = 100;
       } else if (task.status === "IN_PROGRESS" || task.status === "REVIEW") {
-        // Estimate progress based on status
         completionPercentage = task.status === "REVIEW" ? 90 : 50;
       }
 
-      // Determine if task is behind or ahead of schedule
       isDelayed = !actualEndDate && isAfter(today, endDate);
       isAheadOfSchedule = actualEndDate
         ? isBefore(actualEndDate, endDate)
@@ -285,23 +361,19 @@ export const GanttView = forwardRef(function GanttView(
       if (isActualVisible) {
         const actualEndDateToUse = actualEndDate || today;
 
-        // Calculate actual timeline position using the same date-precise method
         const actualStartDateStr = format(actualStartDate, "yyyy-MM-dd");
         const actualEndDateStr = format(actualEndDateToUse, "yyyy-MM-dd");
 
-        // Find start position - if before view range, position at beginning
         const actualStartIndex = Math.max(
           0,
           daysInView.indexOf(actualStartDateStr)
         );
         const actualStartOffset = actualStartIndex;
 
-        // Find end position - if after view range, cap at view end
         const actualEndIndex = daysInView.indexOf(actualEndDateStr);
         const actualEndPosition =
           actualEndIndex === -1 ? daysInView.length - 1 : actualEndIndex;
 
-        // Calculate width for actual timeline
         const actualVisibleDuration = actualEndPosition - actualStartIndex + 1;
 
         const startDelay = differenceInDays(actualStartDate, startDate);
@@ -309,7 +381,6 @@ export const GanttView = forwardRef(function GanttView(
           ? differenceInDays(actualEndDate, endDate)
           : differenceInDays(today, endDate);
 
-        // Calculate efficiency - how does actual compare to planned duration
         const plannedDuration = differenceInDays(endDate, startDate) + 1;
         const actualCompleteDuration = actualEndDate
           ? differenceInDays(actualEndDate, actualStartDate) + 1
@@ -361,7 +432,6 @@ export const GanttView = forwardRef(function GanttView(
     };
   };
 
-  // Calculate summary metrics
   const calculateProjectMetrics = () => {
     if (tasks.length === 0) return null;
 
@@ -401,7 +471,6 @@ export const GanttView = forwardRef(function GanttView(
 
   return (
     <div className="h-full flex flex-col">
-      {/* Gantt Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">
           {format(viewRange.start, "MMM d, yyyy")} -{" "}
@@ -446,7 +515,6 @@ export const GanttView = forwardRef(function GanttView(
             </Tooltip>
           </TooltipProvider>
 
-          {/* Date Range Selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="mr-2">
@@ -496,7 +564,6 @@ export const GanttView = forwardRef(function GanttView(
         </div>
       </div>
 
-      {/* Date Range Picker Dialog */}
       <Dialog open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -530,7 +597,10 @@ export const GanttView = forwardRef(function GanttView(
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setIsDatePickerOpen(false)} variant="outline">
+            <Button
+              onClick={() => setIsDatePickerOpen(false)}
+              variant="outline"
+            >
               Cancel
             </Button>
             <Button onClick={handleApplyDateRange}>Apply Range</Button>
@@ -538,7 +608,6 @@ export const GanttView = forwardRef(function GanttView(
         </DialogContent>
       </Dialog>
 
-      {/* Project Summary */}
       {showSummary && projectMetrics && (
         <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="flex items-center gap-2 p-3 bg-card border border-border rounded-md">
@@ -602,7 +671,6 @@ export const GanttView = forwardRef(function GanttView(
         </div>
       )}
 
-      {/* Add Task Button */}
       <div className="mb-4">
         <Button onClick={onAddTask}>
           <Plus className="mr-2 h-4 w-4" />
@@ -610,7 +678,6 @@ export const GanttView = forwardRef(function GanttView(
         </Button>
       </div>
 
-      {/* Legend - Now conditional */}
       {showActual && (
         <div className="mb-2 flex items-center gap-4 text-xs">
           <div className="flex items-center">
@@ -640,22 +707,57 @@ export const GanttView = forwardRef(function GanttView(
         </div>
       )}
 
-      {/* Gantt Chart */}
       <div className="flex-1 overflow-auto border border-border rounded-md">
         <div className="flex">
-          {/* Task Names Column */}
           <div className="w-48 shrink-0 border-r border-border bg-card">
             <div className="h-10 border-b border-border flex items-center px-4 font-medium">
               Task
             </div>
-            {tasks.map((task) => {
+            {getVisibleTasks().map((task) => {
               const { isDelayed, isAheadOfSchedule, status } = getTaskBar(task);
+              const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+              const hasDependencies =
+                task.dependencies && task.dependencies.length > 0;
+              const isExpanded = expandedTasks.has(task.id);
+              const indentPadding = getTaskIndent(task);
+              const isDependency = !!(task as any)._isDependencyOf;
+
               return (
                 <div
                   key={task.id}
-                  className="h-16 border-b border-border flex items-center px-4 text-sm"
+                  className={`h-16 border-b border-border flex items-center px-4 text-sm ${
+                    isDependency ? "bg-blue-50 dark:bg-blue-900/10" : ""
+                  }`}
                 >
-                  <div className="truncate flex items-center gap-1">
+                  <div
+                    className="truncate flex items-center gap-1"
+                    style={{ paddingLeft: `${indentPadding}px` }}
+                  >
+                    {hasSubtasks && (
+                      <button
+                        className="w-4 h-4 flex items-center justify-center"
+                        onClick={() => toggleTaskExpansion(task.id)}
+                      >
+                        {isExpanded ? "−" : "+"}
+                      </button>
+                    )}
+                    {!hasSubtasks && hasDependencies && (
+                      <button
+                        className="w-4 h-4 flex items-center justify-center"
+                        onClick={() => toggleTaskExpansion(task.id)}
+                      >
+                        {isExpanded ? "−" : "+"}
+                      </button>
+                    )}
+                    {task.parentId && (
+                      <span className="w-2 h-2 rounded-full bg-gray-400 mr-1" />
+                    )}
+                    {(task as any)._isDependencyOf && (
+                      <span
+                        className="w-2 h-2 transform rotate-45 bg-blue-400 mr-1"
+                        title="Dependency"
+                      />
+                    )}
                     {isDelayed && (
                       <TooltipProvider>
                         <Tooltip>
@@ -701,9 +803,7 @@ export const GanttView = forwardRef(function GanttView(
             })}
           </div>
 
-          {/* Timeline */}
           <div className="relative" style={{ width: `${timelineWidth}px` }}>
-            {/* Timeline Header */}
             <div className="h-10 border-b border-border flex">
               {days.map((day, i) => (
                 <div
@@ -719,9 +819,8 @@ export const GanttView = forwardRef(function GanttView(
               ))}
             </div>
 
-            {/* Task Bars */}
             <div>
-              {tasks.map((task) => {
+              {getVisibleTasks().map((task) => {
                 const { visible, left, width, colorClass, actual } =
                   getTaskBar(task);
 
@@ -732,7 +831,6 @@ export const GanttView = forwardRef(function GanttView(
                   >
                     {visible && (
                       <>
-                        {/* Planned Timeline Bar */}
                         <div
                           className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs cursor-pointer`}
                           style={{ left, width }}
@@ -743,7 +841,6 @@ export const GanttView = forwardRef(function GanttView(
                           </div>
                         </div>
 
-                        {/* Progress Line (only for tasks with actual data) */}
                         {showActual && actual && (
                           <div
                             className="absolute h-0.5 top-8 bg-white border border-dashed border-black"
@@ -757,7 +854,6 @@ export const GanttView = forwardRef(function GanttView(
                           ></div>
                         )}
 
-                        {/* Actual Timeline Bar (if available and enabled) */}
                         {showActual && actual && (
                           <TooltipProvider>
                             <Tooltip>
@@ -939,7 +1035,6 @@ export const GanttView = forwardRef(function GanttView(
                           </TooltipProvider>
                         )}
 
-                        {/* Task Controls */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -954,6 +1049,14 @@ export const GanttView = forwardRef(function GanttView(
                             <DropdownMenuItem onClick={() => onEditTask(task)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                onAddTask();
+                              }}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Subtask
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => onDeleteTask(task.id)}

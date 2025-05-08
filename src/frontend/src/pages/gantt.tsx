@@ -19,6 +19,7 @@ interface Task {
   dueDate?: string;
   startDate?: string;
   tags?: Tag[];
+  parentId?: string | null;
 }
 
 interface TaskFormData {
@@ -38,6 +39,7 @@ export default function GanttPage() {
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [availableTasks, setAvailableTasks] = useState<{ id: string; title: string }[]>([]);
   const ganttViewRef = useRef<{ refreshTasks: () => void } | null>(null);
 
   useEffect(() => {
@@ -52,16 +54,27 @@ export default function GanttPage() {
       }
     };
 
-    fetchProject();
-  }, [projectId]);
+    const fetchTasks = async () => {
+      try {
+        const response = await tasksAPI.getAll(projectId);
+        setAvailableTasks(response.data.map(task => ({ id: task.id, title: task.title })));
+      } catch (error) {
+        console.error("Failed to fetch tasks", error);
+      }
+    };
 
-  const handleAddTask = () => {
+    fetchProject();
+    fetchTasks();
+  }, [projectId, refreshKey]);
+
+  const handleAddTask = (parentId?: string) => {
     setCurrentTask({
       id: "",
       title: "",
       description: "",
       status: "TODO",
       priority: "MEDIUM",
+      parentId: parentId,
     });
     setIsFormOpen(true);
   };
@@ -134,6 +147,7 @@ export default function GanttPage() {
         open={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleTaskSubmit}
+        availableTasks={availableTasks}
       />
     </div>
   );

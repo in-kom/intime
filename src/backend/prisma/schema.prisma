@@ -60,6 +60,15 @@ model Task {
   projectId       String
   project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tags            Tag[]     @relation("TaskToTag")
+
+  // Dependencies relationship (many-to-many self-relation)
+  dependencies    Task[]    @relation("TaskDependencies")
+  dependencyFor   Task[]    @relation("TaskDependencies")
+
+  // Parent-child relationship for subtasks
+  parent          Task?     @relation("TaskSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId        String?
+  subtasks        Task[]    @relation("TaskSubtasks")
 }
 
 model Tag {

@@ -21,6 +21,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { 
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 // Define Tag interface
 interface Tag {
@@ -37,6 +45,7 @@ const taskSchema = z.object({
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
   dueDate: z.string().optional(),
   startDate: z.string().optional(),
+  parentId: z.string().optional().nullable(),
 });
 
 type TaskFormValues = z.infer<typeof taskSchema>;
@@ -51,17 +60,25 @@ interface TaskFormProps {
     dueDate?: string;
     startDate?: string;
     tags?: Tag[];
+    dependencies?: { id: string; title: string }[];
+    parent?: { id: string; title: string } | null;
+    parentId?: string | null;
   };
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: TaskFormValues & { tagIds?: string[] }) => void;
+  onSubmit: (values: TaskFormValues & { tagIds?: string[]; dependencyIds?: string[]; parentId?: string | null }) => void;
+  availableTasks?: { id: string; title: string }[]; // Available tasks for dependencies or parent selection
 }
 
-export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
+export function TaskForm({ task, open, onClose, onSubmit, availableTasks = [] }: TaskFormProps) {
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [selectedDependencies, setSelectedDependencies] = useState<{ id: string; title: string }[]>([]);
+  const [parentTask, setParentTask] = useState<{ id: string; title: string } | null>(null);
   const { projectId = "" } = useParams<{ projectId: string }>();
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [isDepPickerOpen, setIsDepPickerOpen] = useState(false);
+  const [isParentPickerOpen, setIsParentPickerOpen] = useState(false);
 
   const { register, handleSubmit, reset, formState, setValue, watch } = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
@@ -72,6 +89,7 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
       priority: task?.priority || "MEDIUM",
       dueDate: task?.dueDate || "",
       startDate: task?.startDate || "",
+      parentId: task?.parentId || null,
     },
   });
 
@@ -99,16 +117,22 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
         priority: task?.priority || "MEDIUM",
         dueDate: formattedDueDate,
         startDate: formattedStartDate,
+        parentId: task?.parentId || null,
       });
       setSelectedTags(task?.tags || []);
+      setSelectedDependencies(task?.dependencies || []);
+      setParentTask(task?.parent || null);
     }
   }, [open, task, reset]);
 
   const processSubmit = (values: TaskFormValues) => {
     const tagIds = selectedTags.map(tag => tag.id);
+    const dependencyIds = selectedDependencies.map(dep => dep.id);
     onSubmit({ 
       ...values, 
       tagIds,
+      dependencyIds,
+      parentId: values.parentId,
       startDate: values.startDate || format(new Date(), "yyyy-MM-dd")
     });
     onClose();
@@ -137,7 +161,7 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {task?.id ? "Edit Task" : "Create Task"}
@@ -274,6 +298,111 @@ export function TaskForm({ task, open, onClose, onSubmit }: TaskFormProps) {
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
+
+          {/* Parent Task Selector */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Parent Task
+            </label>
+            <Popover open={isParentPickerOpen} onOpenChange={setIsParentPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={isParentPickerOpen}
+                  className="w-full justify-between"
+                >
+                  {parentTask ? parentTask.title : "No parent task"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Search tasks..." />
+                  <CommandList>
+                    <CommandEmpty>No tasks found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        onSelect={() => {
+                          setParentTask(null);
+                          setValue("parentId", null);
+                          setIsParentPickerOpen(false);
+                        }}
+                      >
+                        No parent task
+                      </CommandItem>
+                      {availableTasks
+                        .filter(t => t.id !== task?.id) // Can't be its own parent
+                        .map(t => (
+                          <CommandItem
+                            key={t.id}
+                            onSelect={() => {
+                              setParentTask(t);
+                              setValue("parentId", t.id);
+                              setIsParentPickerOpen(false);
+                            }}
+                          >
+                            {t.title}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Dependencies Selector */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Dependencies
+            </label>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {selectedDependencies.map(dep => (
+                <div key={dep.id} className="bg-secondary text-secondary-foreground px-2 py-1 text-xs rounded-md flex items-center gap-1">
+                  {dep.title}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDependencies(prev => prev.filter(d => d.id !== dep.id))}
+                    className="text-secondary-foreground/50 hover:text-secondary-foreground"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Popover open={isDepPickerOpen} onOpenChange={setIsDepPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  Add dependencies
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Search tasks..." />
+                  <CommandList>
+                    <CommandEmpty>No tasks found.</CommandEmpty>
+                    <CommandGroup>
+                      {availableTasks
+                        .filter(t => 
+                          t.id !== task?.id && // Can't depend on itself
+                          !selectedDependencies.some(dep => dep.id === t.id) // Not already selected
+                        )
+                        .map(t => (
+                          <CommandItem
+                            key={t.id}
+                            onSelect={() => {
+                              setSelectedDependencies(prev => [...prev, t]);
+                            }}
+                          >
+                            {t.title}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2">

@@ -38,7 +38,11 @@ export const getTasks = async (req: Request, res: Response) => {
   const tasks = await prisma.task.findMany({
     where: { projectId },
     include: {
-      tags: true
+      tags: true,
+      dependencies: true,
+      dependencyFor: true,
+      parent: true,
+      subtasks: true
     }
   });
 
@@ -57,7 +61,11 @@ export const getTask = async (req: Request, res: Response) => {
           company: true
         }
       },
-      tags: true
+      tags: true,
+      dependencies: true,
+      dependencyFor: true,
+      parent: true,
+      subtasks: true
     }
   });
 
@@ -86,7 +94,16 @@ export const getTask = async (req: Request, res: Response) => {
 // Create task
 export const createTask = async (req: Request, res: Response) => {
   const { projectId } = req.params;
-  const { title, description, status, priority, dueDate, tagIds } = req.body;
+  const { 
+    title, 
+    description, 
+    status, 
+    priority, 
+    dueDate, 
+    tagIds, 
+    parentId, 
+    dependencyIds 
+  } = req.body;
 
   // Check if project exists and user has access
   const project = await prisma.project.findUnique({
@@ -137,10 +154,24 @@ export const createTask = async (req: Request, res: Response) => {
         connect: tagIds.map((id: string) => ({ id }))
       } : undefined,
       actualStartDate,
-      actualEndDate
+      actualEndDate,
+      // Add parent relation if parentId is provided
+      ...(parentId && {
+        parent: {
+          connect: { id: parentId }
+        }
+      }),
+      // Add dependencies if dependencyIds are provided
+      ...(dependencyIds && dependencyIds.length > 0 && {
+        dependencies: {
+          connect: dependencyIds.map((id: string) => ({ id }))
+        }
+      })
     },
     include: {
-      tags: true
+      tags: true,
+      dependencies: true,
+      subtasks: true
     }
   });
 
@@ -150,7 +181,17 @@ export const createTask = async (req: Request, res: Response) => {
 // Update task
 export const updateTask = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { title, description, status, priority, dueDate, tagIds, startDate } = req.body;
+  const { 
+    title, 
+    description, 
+    status, 
+    priority, 
+    dueDate, 
+    tagIds, 
+    startDate, 
+    parentId, 
+    dependencyIds 
+  } = req.body;
 
   // Check if task exists and user has access
   const task = await prisma.task.findUnique({
@@ -186,7 +227,10 @@ export const updateTask = async (req: Request, res: Response) => {
   // Get current task tags for disconnect operation
   const currentTask = await prisma.task.findUnique({
     where: { id },
-    include: { tags: true }
+    include: { 
+      tags: true,
+      dependencies: true 
+    }
   });
 
   // Determine if we need to update the actual start/end dates based on status changes
@@ -223,10 +267,23 @@ export const updateTask = async (req: Request, res: Response) => {
       tags: {
         disconnect: currentTask?.tags.map(tag => ({ id: tag.id })),
         connect: tagIds ? tagIds.map((id: string) => ({ id })) : []
+      },
+      // Update parent relation
+      ...(parentId !== undefined && {
+        parent: parentId ? { connect: { id: parentId } } : { disconnect: true }
+      }),
+      // Update dependencies
+      dependencies: {
+        disconnect: currentTask?.dependencies.map(dep => ({ id: dep.id })),
+        connect: dependencyIds ? dependencyIds.map((id: string) => ({ id })) : []
       }
     },
     include: {
-      tags: true
+      tags: true,
+      dependencies: true,
+      dependencyFor: true,
+      parent: true,
+      subtasks: true
     }
   });
 

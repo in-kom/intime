@@ -110,7 +110,14 @@ export interface Task {
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate?: string;
   startDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
   tags?: Tag[];
+  dependencies?: Task[];
+  dependencyFor?: Task[];
+  parent?: Task | null;
+  parentId?: string | null;
+  subtasks?: Task[];
 }
 
 export interface Tag {
@@ -127,6 +134,8 @@ export interface TaskCreateUpdatePayload {
   dueDate?: string;
   tagIds?: string[];
   startDate?: string;
+  dependencyIds?: string[];
+  parentId?: string | null;
 }
 
 export const tasksAPI = {
