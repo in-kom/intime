@@ -1,6 +1,6 @@
 {
-  "name": "todo-app-backend",
-  "version": "1.0.0",
+  "name": "intime-api",
+  "version": "0.0.0",
   "description": "Backend for Todo List Kanban application",
   "main": "dist/index.js",
   "scripts": {
