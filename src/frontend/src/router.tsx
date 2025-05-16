@@ -64,7 +64,7 @@ const router = createBrowserRouter([
         element: <CompanySettingsPage />,
       },
       { path: "/user-settings", element: <UserSettingsPage /> },
-      { path: "/gantt/:projectId", element: <GanttPage /> }, // Add Gantt route
+      { path: "/gantt/:projectId", element: <GanttPage /> },
     ],
   },
 ]);

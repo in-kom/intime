@@ -3,6 +3,7 @@ import {
   useEffect,
   forwardRef,
   useImperativeHandle,
+  useRef,
 } from "react";
 import {
   format,
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import LeaderLine from "leader-line-new";
 
 interface Tag {
   id: string;
@@ -95,7 +97,8 @@ export const GanttView = forwardRef(function GanttView(
     start: new Date(),
     end: addDays(new Date(), 14),
   });
-  const [timelineWidth] = useState(1000);
+  const [minDayWidth] = useState(60); // Minimum width per day in pixels
+  const [calculatedDayWidth, setCalculatedDayWidth] = useState(minDayWidth); // Dynamic day width
   const [showActual, setShowActual] = useState(true);
   const [showSummary, setShowSummary] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -104,6 +107,11 @@ export const GanttView = forwardRef(function GanttView(
     to: viewRange.end,
   });
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const taskElementsRef = useRef<Map<string, HTMLElement>>(new Map());
+  const taskBarElementsRef = useRef<Map<string, HTMLElement>>(new Map());
+  const leaderLinesRef = useRef<LeaderLine[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
 
   // Expose the refreshTasks method via ref
   useImperativeHandle(ref, () => ({
@@ -227,7 +235,14 @@ export const GanttView = forwardRef(function GanttView(
       if (expandedTasks.has(task.id)) {
         // Process all subtasks first (maintaining hierarchy)
         if (task.subtasks && task.subtasks.length > 0) {
-          task.subtasks.forEach((subtask) => {
+          // Sort subtasks by start date before adding them
+          const sortedSubtasks = [...task.subtasks].sort((a, b) => {
+            const aDate = a.startDate ? new Date(a.startDate) : new Date();
+            const bDate = b.startDate ? new Date(b.startDate) : new Date();
+            return aDate.getTime() - bDate.getTime();
+          });
+
+          sortedSubtasks.forEach((subtask) => {
             processTask(subtask);
           });
         }
@@ -278,10 +293,38 @@ export const GanttView = forwardRef(function GanttView(
     return 0;
   };
 
+  // Calculate and update day width based on container size and number of days
+  const updateDayWidth = () => {
+    if (!timelineContainerRef.current) return;
+
+    const containerWidth = timelineContainerRef.current.clientWidth;
+    const days = getDaysArray();
+    const numberOfDays = days.length;
+
+    // Calculate optimal day width to fill available space
+    // (but not less than minDayWidth)
+    const availableWidth = containerWidth - 48; // Account for task list column (w-48)
+    const optimalDayWidth = Math.max(minDayWidth, availableWidth / numberOfDays);
+
+    setCalculatedDayWidth(optimalDayWidth);
+  };
+
+  // Update day width on resize and when day range changes
+  useEffect(() => {
+    updateDayWidth();
+    const handleResize = () => {
+      updateDayWidth();
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [viewRange]); // Recalculate when view range changes
+
   const getTaskBar = (task: Task) => {
     const days = getDaysArray();
-    const totalDays = days.length;
-    const dayWidth = timelineWidth / totalDays;
+    const dayWidth = calculatedDayWidth;
 
     const startDate = task.startDate
       ? parseISO(task.startDate)
@@ -460,6 +503,137 @@ export const GanttView = forwardRef(function GanttView(
     };
   };
 
+  const renderSequentialArrows = () => {
+    // Clear existing lines to prevent duplicates
+    leaderLinesRef.current.forEach((line) => line.remove());
+    leaderLinesRef.current = [];
+
+    // Get the scroll container for setting the proper parent container
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    // For each parent with multiple subtasks, connect them in sequence
+    const visibleTasks = getVisibleTasks();
+    const parentTasks = visibleTasks.filter(
+      (task) => task.subtasks && task.subtasks.length > 1
+    );
+
+    parentTasks.forEach((parent) => {
+      if (!expandedTasks.has(parent.id)) return;
+
+      // Get visible subtasks and sort by start date
+      const subtasks = parent.subtasks!
+        .filter((subtask) => {
+          // Check if both task element and bar element exist
+          const barElement = taskBarElementsRef.current.get(subtask.id);
+          return barElement != null;
+        })
+        .sort((a, b) => {
+          const aDate = a.startDate ? new Date(a.startDate) : new Date();
+          const bDate = b.startDate ? new Date(b.startDate) : new Date();
+          return aDate.getTime() - bDate.getTime();
+        });
+
+      // Connect subtasks in sequence
+      for (let i = 0; i < subtasks.length - 1; i++) {
+        const currentTask = subtasks[i];
+        const nextTask = subtasks[i + 1];
+
+        // Use task bar elements instead of name elements
+        const startElem = taskBarElementsRef.current.get(currentTask.id);
+        const endElem = taskBarElementsRef.current.get(nextTask.id);
+
+        if (startElem && endElem) {
+          try {
+            const leaderLine = new LeaderLine(
+              LeaderLine.pointAnchor(startElem, { x: "100%", y: "50%" }),
+              LeaderLine.pointAnchor(endElem, { x: "0%", y: "50%" }),
+              {
+                color: "rgba(65, 105, 225, 0.6)",
+                size: 2,
+                path: "grid",
+                startSocket: "right",
+                endSocket: "left",
+                startPlug: "behind",
+                endPlug: "arrow1",
+                endPlugSize: 1.5,
+                startPlugColor: "rgba(65, 105, 225, 0.6)",
+                endPlugColor: "rgba(65, 105, 225, 0.6)",
+                gradient: false,
+                dropShadow: true,
+                outlineColor: "white",
+                outline: true,
+                dash: { len: 10, gap: 3 },
+              }
+            );
+
+            leaderLinesRef.current.push(leaderLine);
+          } catch (error) {
+            console.error("Failed to create sequential arrow:", error);
+          }
+        }
+      }
+    });
+  };
+
+  // Handler for scrolling - updates leader lines positions with better accuracy
+  const handleScroll = () => {
+    if (leaderLinesRef.current.length > 0) {
+      // Set a small timeout to ensure the DOM has updated
+      requestAnimationFrame(() => {
+        leaderLinesRef.current.forEach((line) => line.position());
+      });
+    }
+  };
+
+  // Debounce function to limit how often positions are recalculated during scrolling
+  const debounce = (func: Function, wait: number) => {
+    let timeout: NodeJS.Timeout;
+    return function executedFunction(...args: any[]) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  };
+
+  // Debounced scroll handler for better performance
+  const debouncedHandleScroll = debounce(handleScroll, 1);
+
+  // Add scroll event listener
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener("scroll", debouncedHandleScroll);
+
+      // Also handle window resize to reposition lines
+      window.addEventListener("resize", debouncedHandleScroll);
+    }
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener("scroll", debouncedHandleScroll);
+      }
+      window.removeEventListener("resize", debouncedHandleScroll);
+    };
+  }, [debouncedHandleScroll]);
+
+  // Redraw lines when tasks or expanded state changes
+  useEffect(() => {
+    // Small delay to ensure DOM elements are properly rendered
+    const timerId = setTimeout(() => {
+      renderSequentialArrows();
+    }, 10);
+
+    return () => {
+      clearTimeout(timerId);
+      leaderLinesRef.current.forEach((line) => line.remove());
+      leaderLinesRef.current = [];
+    };
+  }, [tasks, expandedTasks, viewRange]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full">Loading...</div>
@@ -470,7 +644,7 @@ export const GanttView = forwardRef(function GanttView(
   const projectMetrics = calculateProjectMetrics();
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" ref={timelineContainerRef}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">
           {format(viewRange.start, "MMM d, yyyy")} -{" "}
@@ -678,38 +852,17 @@ export const GanttView = forwardRef(function GanttView(
         </Button>
       </div>
 
-      {showActual && (
-        <div className="mb-2 flex items-center gap-4 text-xs">
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-gray-300 mr-1"></div>
-            <span>Planned Timeline</span>
-          </div>
-          {showActual && (
-            <>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-blue-300 mr-1"></div>
-                <span>Actual Timeline</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-red-300 mr-1"></div>
-                <span>Delayed</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-green-300 mr-1"></div>
-                <span>Ahead of schedule</span>
-              </div>
-              <div className="flex items-center">
-                <div className="h-1 w-6 bg-white border border-dashed border-black mr-1"></div>
-                <span>Progress</span>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      <div className="flex-1 overflow-auto border border-border rounded-md">
+      <div
+        className="flex-1 overflow-auto border border-border rounded-md relative"
+        ref={scrollContainerRef}
+        // Add CSS to ensure the leader lines are properly contained in the scrollable area
+        style={{
+          isolation: "isolate", // Create a new stacking context
+          contain: "paint", // Improve performance and containment
+        }}
+      >
         <div className="flex">
-          <div className="w-48 shrink-0 border-r border-border bg-card">
+          <div className="w-48 shrink-0 border-r border-border bg-card sticky left-0 z-10">
             <div className="h-10 border-b border-border flex items-center px-4 font-medium">
               Task
             </div>
@@ -728,6 +881,13 @@ export const GanttView = forwardRef(function GanttView(
                   className={`h-16 border-b border-border flex items-center px-4 text-sm ${
                     isDependency ? "bg-blue-50 dark:bg-blue-900/10" : ""
                   }`}
+                  ref={(el) => {
+                    if (el) {
+                      taskElementsRef.current.set(task.id, el);
+                    } else {
+                      taskElementsRef.current.delete(task.id);
+                    }
+                  }}
                 >
                   <div
                     className="truncate flex items-center gap-1"
@@ -803,13 +963,19 @@ export const GanttView = forwardRef(function GanttView(
             })}
           </div>
 
-          <div className="relative" style={{ width: `${timelineWidth}px` }}>
-            <div className="h-10 border-b border-border flex">
+          <div className="relative">
+            <div
+              className="h-10 border-b border-border flex"
+              style={{ width: `${days.length * calculatedDayWidth}px` }}
+            >
               {days.map((day, i) => (
                 <div
                   key={i}
-                  className="flex-1 text-center border-r border-border text-xs flex flex-col justify-center"
-                  style={{ minWidth: `${timelineWidth / days.length}px` }}
+                  className="text-center border-r border-border text-xs flex flex-col justify-center"
+                  style={{
+                    width: `${calculatedDayWidth}px`,
+                    minWidth: `${calculatedDayWidth}px`,
+                  }}
                 >
                   <div>{format(day, "MMM d")}</div>
                   <div className="text-muted-foreground">
@@ -819,7 +985,7 @@ export const GanttView = forwardRef(function GanttView(
               ))}
             </div>
 
-            <div>
+            <div style={{ width: `${days.length * calculatedDayWidth}px` }}>
               {getVisibleTasks().map((task) => {
                 const { visible, left, width, colorClass, actual } =
                   getTaskBar(task);
@@ -835,6 +1001,14 @@ export const GanttView = forwardRef(function GanttView(
                           className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs cursor-pointer`}
                           style={{ left, width }}
                           onClick={() => onEditTask(task)}
+                          ref={(el) => {
+                            // Store reference to the task bar element
+                            if (el) {
+                              taskBarElementsRef.current.set(task.id, el);
+                            } else {
+                              taskBarElementsRef.current.delete(task.id);
+                            }
+                          }}
                         >
                           <div className="truncate">
                             {showActual ? "Planned" : task.title}
