@@ -126,6 +126,7 @@ export const GanttView = forwardRef(function GanttView(
         setIsLoading(true);
         const response = await tasksAPI.getAll(projectId);
         setTasks(response.data);
+        updateDayWidth(); // Update day width after fetching tasks
       } catch (error) {
         console.error("Failed to fetch tasks", error);
       } finally {
@@ -545,13 +546,34 @@ export const GanttView = forwardRef(function GanttView(
 
         if (startElem && endElem) {
           try {
+            // Check if the task starts at the beginning of the timeline
+            const taskBar = getTaskBar(nextTask);
+            const startsAtBeginning = taskBar.left === "0px";
+
+            // Configure the path based on task position
+            const pathConfig = startsAtBeginning
+              ? {
+                  path: "grid" as const,
+                  startSocket: "right" as const,
+                  // go down after the right side of the task bar
+                  endSocket: "top" as const,
+                }
+              : {
+                  path: "grid" as const,
+                  startSocket: "right" as const,
+                  endSocket: "left" as const,
+                };
+
             const leaderLine = new LeaderLine(
               LeaderLine.pointAnchor(startElem, { x: "100%", y: "50%" }),
-              LeaderLine.pointAnchor(endElem, { x: "0%", y: "50%" }),
+              LeaderLine.pointAnchor(endElem, {
+                x: startsAtBeginning ? "20%" : "0%",
+                y: startsAtBeginning ? "0%" : "50%",
+              }),
               {
                 color: "rgba(65, 105, 225, 0.6)",
                 size: 2,
-                path: "grid",
+                ...pathConfig,
                 startSocket: "right",
                 endSocket: "left",
                 startPlug: "behind",
@@ -563,9 +585,15 @@ export const GanttView = forwardRef(function GanttView(
                 dropShadow: true,
                 outlineColor: "white",
                 outline: true,
-                dash: { len: 10, gap: 3 },
+                dash: { len: 10, gap: 3 }
               }
             );
+
+            // Set z-index for the leader line elements
+            const leaderLineElements = document.getElementsByClassName('leader-line');
+            for (let i = 0; i < leaderLineElements.length; i++) {
+              (leaderLineElements[i] as HTMLElement).style.zIndex = '-1';
+            }
 
             leaderLinesRef.current.push(leaderLine);
           } catch (error) {
@@ -855,14 +883,15 @@ export const GanttView = forwardRef(function GanttView(
       <div
         className="flex-1 overflow-auto border border-border rounded-md relative"
         ref={scrollContainerRef}
-        // Add CSS to ensure the leader lines are properly contained in the scrollable area
         style={{
           isolation: "isolate", // Create a new stacking context
           contain: "paint", // Improve performance and containment
+          position: "relative", // Ensure proper stacking context
+          zIndex: 0 // Base z-index for the container
         }}
       >
         <div className="flex">
-          <div className="w-48 shrink-0 border-r border-border bg-card sticky left-0 z-10">
+          <div className="w-48 shrink-0 border-r border-border bg-card sticky left-0 z-20">
             <div className="h-10 border-b border-border flex items-center px-4 font-medium">
               Task
             </div>
@@ -895,7 +924,7 @@ export const GanttView = forwardRef(function GanttView(
                   >
                     {hasSubtasks && (
                       <button
-                        className="w-4 h-4 flex items-center justify-center"
+                        className="w-4 h-4 flex items-center justify-center hover:cursor-pointer"
                         onClick={() => toggleTaskExpansion(task.id)}
                       >
                         {isExpanded ? "−" : "+"}
@@ -903,7 +932,7 @@ export const GanttView = forwardRef(function GanttView(
                     )}
                     {!hasSubtasks && hasDependencies && (
                       <button
-                        className="w-4 h-4 flex items-center justify-center"
+                        className="w-4 h-4 flex items-center justify-center hover:cursor-pointer"
                         onClick={() => toggleTaskExpansion(task.id)}
                       >
                         {isExpanded ? "−" : "+"}
@@ -963,9 +992,9 @@ export const GanttView = forwardRef(function GanttView(
             })}
           </div>
 
-          <div className="relative">
+          <div className="relative" style={{ zIndex: 10 }}>
             <div
-              className="h-10 border-b border-border flex"
+              className="h-10 border-b border-border flex sticky left-0 bg-background z-20"
               style={{ width: `${days.length * calculatedDayWidth}px` }}
             >
               {days.map((day, i) => (
@@ -999,7 +1028,7 @@ export const GanttView = forwardRef(function GanttView(
                       <>
                         <div
                           className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs cursor-pointer`}
-                          style={{ left, width }}
+                          style={{ left, width, zIndex: 15 }}
                           onClick={() => onEditTask(task)}
                           ref={(el) => {
                             // Store reference to the task bar element
@@ -1011,7 +1040,7 @@ export const GanttView = forwardRef(function GanttView(
                           }}
                         >
                           <div className="truncate">
-                            {showActual ? "Planned" : task.title}
+                            {showActual ? `Planned ${task}` : task.title}
                           </div>
                         </div>
 
@@ -1214,7 +1243,10 @@ export const GanttView = forwardRef(function GanttView(
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 absolute right-1 top-5 text-white hover:bg-white/20 z-10"
+                              className="h-6 w-6 absolute top-5 text-white hover:bg-white/20 z-10"
+                              style={{
+                                left: `calc(${left} + ${width} - 28px)`,
+                              }}
                             >
                               <MoreHorizontal className="h-3 w-3" />
                             </Button>
