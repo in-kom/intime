@@ -303,7 +303,13 @@ export function MainLayout() {
 
         {/* Projects List */}
         <div className="flex-1 overflow-auto p-4">
-          {isNavigationOpen && <h2 className="font-semibold mb-2">Projects</h2>}
+          {isNavigationOpen && (
+            <Link to="/">
+              <h2 className="font-semibold mb-2 hover:text-primary hover:underline">
+                Projects
+              </h2>
+            </Link>
+          )}
           <div className="space-y-1">
             {projects.map((project) => (
               <>

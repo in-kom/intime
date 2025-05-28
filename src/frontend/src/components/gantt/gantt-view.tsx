@@ -187,9 +187,14 @@ export const GanttView = forwardRef(function GanttView(
 
   const handleApplyDateRange = () => {
     if (dateRange.from && dateRange.to) {
+      // Ensure start date is before end date, swap if needed
+      const [startDate, endDate] = isAfter(dateRange.from, dateRange.to)
+        ? [dateRange.to, dateRange.from]
+        : [dateRange.from, dateRange.to];
+
       setViewRange({
-        start: dateRange.from,
-        end: dateRange.to,
+        start: startDate,
+        end: endDate,
       });
       setIsDatePickerOpen(false);
     }
@@ -767,11 +772,11 @@ export const GanttView = forwardRef(function GanttView(
       </div>
 
       <Dialog open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-w-[calc(min(50vw,800px))] w-auto overflow-hidden">
           <DialogHeader>
             <DialogTitle>Select Date Range</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col space-y-4 py-4">
+          <div className="flex flex-col space-y-4 py-2 overflow-y-auto max-h-[70vh]">
             <CalendarComponent
               mode="range"
               selected={{
@@ -779,18 +784,25 @@ export const GanttView = forwardRef(function GanttView(
                 to: dateRange.to,
               }}
               onSelect={(range) => {
-                if (range?.from && range?.to) {
-                  setDateRange({ from: range.from, to: range.to });
+                if (range?.from) {
+                  // Allow selecting just a start date first
+                  setDateRange({ 
+                    from: range.from, 
+                    to: range.to || dateRange.to 
+                  });
                 }
               }}
               className={cn("rounded-md border")}
               numberOfMonths={2}
+              disabled={false}
+              defaultMonth={dateRange.from} // Ensure calendar opens at the current start date
+              fixedWeeks={true} // Ensures consistent height
             />
             <div className="text-sm text-muted-foreground">
               {dateRange.from && dateRange.to ? (
-                <p>
-                  Selected: {format(dateRange.from, "PPP")} to{" "}
-                  {format(dateRange.to, "PPP")} (
+                <p className="break-words">
+                  Selected: {format(dateRange.from, "MMM d, yyyy")} to{" "}
+                  {format(dateRange.to, "MMM d, yyyy")} (
                   {differenceInDays(dateRange.to, dateRange.from) + 1} days)
                 </p>
               ) : (
@@ -798,14 +810,19 @@ export const GanttView = forwardRef(function GanttView(
               )}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button
-              onClick={() => setIsDatePickerOpen(false)}
               variant="outline"
+              onClick={() => setIsDatePickerOpen(false)}
             >
               Cancel
             </Button>
-            <Button onClick={handleApplyDateRange}>Apply Range</Button>
+            <Button 
+              onClick={handleApplyDateRange} 
+              disabled={!dateRange.from || !dateRange.to}
+            >
+              Apply Range
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1040,7 +1057,7 @@ export const GanttView = forwardRef(function GanttView(
                           }}
                         >
                           <div className="truncate">
-                            {showActual ? `Planned ${task}` : task.title}
+                            {showActual ? `${task.title} - Actual` : `${task.title} - Planned`}
                           </div>
                         </div>
 
@@ -1053,16 +1070,17 @@ export const GanttView = forwardRef(function GanttView(
                                 (actual.plannedPercentage / 100) *
                                 parseFloat(width)
                               }px`,
+                              pointerEvents: "none" // Prevent this from capturing hover events
                             }}
                           ></div>
                         )}
 
                         {showActual && actual && (
-                          <TooltipProvider>
+                          <TooltipProvider delayDuration={100}>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <div
-                                  className={`absolute h-6 top-5 rounded shadow-sm flex items-center px-2 text-white text-xs cursor-pointer ${
+                                  className={`absolute h-6 top-5 rounded shadow-sm flex items-center px-2 text-white text-xs cursor-pointer hover:brightness-110 ${
                                     actual.startDelay > 0
                                       ? "bg-red-500"
                                       : actual.startDelay < 0
@@ -1072,10 +1090,19 @@ export const GanttView = forwardRef(function GanttView(
                                   style={{
                                     left: actual.left,
                                     width: actual.width,
+                                    zIndex: 30, // Increased z-index to ensure it's above other elements
+                                    pointerEvents: "auto"
                                   }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditTask(task);
+                                  }}
+                                  aria-haspopup="true"
+                                  data-state="closed"
+                                  tabIndex={0} // Make it focusable for accessibility
                                 >
                                   <div className="truncate flex justify-between w-full">
-                                    <span>Actual</span>
+                                    <span>{task.title} - Actual</span>
                                     {actual.isCompleted && (
                                       <span className="font-semibold">
                                         100%
@@ -1090,7 +1117,7 @@ export const GanttView = forwardRef(function GanttView(
                                   </div>
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent className="w-60">
+                              <TooltipContent side="top" className="w-60 z-50">
                                 <div className="text-xs space-y-1">
                                   <div className="font-semibold border-b pb-1 mb-1">
                                     Task Timeline Analysis
