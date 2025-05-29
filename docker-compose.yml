@@ -1,29 +1,66 @@
 version: '3.8'
 
 services:
-  frontend:
-    build:
-      context: ./src/frontend
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
+  postgres:
+    image: postgres:14-alpine
+    container_name: intime-postgres
     environment:
-      - VITE_API_URL=http://localhost:3000/api
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: intime
+    ports:
+      - "5432:5432"
     volumes:
-      # Mount the source code for development hot-reloading
-      - ./src/frontend:/app/src
-      # Note: Before building, run: npm install date-fns@3.6.0 --save
-      # This resolves the conflict between react-day-picker@8.10.1 and date-fns
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - intime-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
       context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: intime-backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/intime
+      JWT_SECRET: your_jwt_secret_key
+      PORT: 3000
     ports:
       - "3000:3000"
-    environment:
-      - PORT=3000
-      - JWT_SECRET=your_jwt_secret
-      - JWT_EXPIRES_IN=1d
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
+      - ./src/backend:/app
+      - /app/node_modules
       - ./uploads:/app/uploads
+    networks:
+      - intime-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: intime-frontend
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - intime-network
+    restart: unless-stopped
+
+networks:
+  intime-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
