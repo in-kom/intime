@@ -33,6 +33,9 @@ import {
   Building2,
   Calendar,
   Settings,
+  GanttChart,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "../ui/separator";
@@ -67,6 +70,7 @@ export function MainLayout() {
   const location = useLocation();
   const isProjectRoute =
     location.pathname.includes("/calendar/") ||
+    location.pathname.includes("/gantt/") ||
     location.pathname.includes("/kanban/") ||
     location.pathname.includes("/project-details/") ||
     location.pathname.includes("/company-settings/") ||
@@ -83,6 +87,7 @@ export function MainLayout() {
   const [isCreating, setIsCreating] = useState(false);
   const [isCompanyDialogOpen, setIsCompanyDialogOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user) {
@@ -199,6 +204,22 @@ export function MainLayout() {
     setActiveCompanyId(company.id);
   };
 
+  // Toggle project expansion
+  const toggleProjectExpansion = (projectId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setExpandedProjects(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(projectId)) {
+        newSet.delete(projectId);
+      } else {
+        newSet.add(projectId);
+      }
+      return newSet;
+    });
+  };
+
   if (authLoading || projectsLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -301,61 +322,107 @@ export function MainLayout() {
 
         {/* Projects List */}
         <div className="flex-1 overflow-auto p-4">
-          {isNavigationOpen && <h2 className="font-semibold mb-2">Projects</h2>}
+          {isNavigationOpen && (
+            <Link to="/">
+              <h2 className="font-semibold mb-2 hover:text-primary hover:underline">
+                Projects
+              </h2>
+            </Link>
+          )}
           <div className="space-y-1">
             {projects.map((project) => (
-              <>
-                <div key={project.id} className="flex flex-col space-y-1 mt-4">
+              <div key={project.id} className="mb-4">
+                <div className="flex flex-col space-y-1 mt-4">
                   <div
                     className={`font-medium mb-2 ${
                       !isNavigationOpen && "hidden"
                     }`}
                   >
-                    <Link
-                      to={`/project-details/${project.id}`}
-                      className="hover:underline"
-                    >
-                      <CardTitle className="cursor-pointer">
-                        {project.name}
-                      </CardTitle>
-                    </Link>
+                    <div className="flex items-center">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0 mr-1"
+                        onClick={(e) => toggleProjectExpansion(project.id, e)}
+                      >
+                        {expandedProjects.has(project.id) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Link
+                        to={`/project-details/${project.id}`}
+                        className="hover:underline flex-grow"
+                        onClick={() => {
+                          // Auto-expand the project if it's not already expanded
+                          if (!expandedProjects.has(project.id)) {
+                            setExpandedProjects(prev => {
+                              const newSet = new Set(prev);
+                              newSet.add(project.id);
+                              return newSet;
+                            });
+                          }
+                        }}
+                      >
+                        <CardTitle className="cursor-pointer">
+                          {project.name}
+                        </CardTitle>
+                      </Link>
+                    </div>
                   </div>
-                  <div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => navigate(`/kanban/${project.id}`)}
-                    >
-                      <FolderKanban className="h-4 w-4" />
-                      {isNavigationOpen && <span className="ml-2">Kanban</span>}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => navigate(`/calendar/${project.id}`)}
-                    >
-                      <Calendar className="h-4 w-4" />
-                      {isNavigationOpen && (
-                        <span className="ml-2">Calendar</span>
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => navigate(`/database/${project.id}`)}
-                    >
-                      <Database className="h-4 w-4" />
-                      {isNavigationOpen && (
-                        <span className="ml-2">Database</span>
-                      )}
-                    </Button>
-                  </div>
+                  
+                  {(expandedProjects.has(project.id) || !isNavigationOpen) && (
+                    <div>
+                      <Button
+                        key={`${project.id}-kanban`}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => navigate(`/kanban/${project.id}`)}
+                      >
+                        <FolderKanban className="h-4 w-4" />
+                        {isNavigationOpen && <span className="ml-2">Kanban</span>}
+                      </Button>
+                      <Button
+                        key={`${project.id}-calendar`}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => navigate(`/calendar/${project.id}`)}
+                      >
+                        <Calendar className="h-4 w-4" />
+                        {isNavigationOpen && (
+                          <span className="ml-2">Calendar</span>
+                        )}
+                      </Button>
+                      <Button
+                        key={`${project.id}-database`}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => navigate(`/database/${project.id}`)}
+                      >
+                        <Database className="h-4 w-4" />
+                        {isNavigationOpen && (
+                          <span className="ml-2">Database</span>
+                        )}
+                      </Button>
+                      <Button
+                        key={`${project.id}-gantt`}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => navigate(`/gantt/${project.id}`)}
+                      >
+                        <GanttChart className="h-4 w-4" />
+                        {isNavigationOpen && <span className="ml-2">Gantt</span>}
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <Separator />
-              </>
+              </div>
             ))}
           </div>
 
@@ -530,6 +597,13 @@ export function MainLayout() {
                         >
                           <Database className="mr-2 h-4 w-4" />
                           Database
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/gantt/${project.id}`)}
+                        >
+                          <GanttChart className="mr-2 h-4 w-4" />
+                          Gantt
                         </Button>
                       </CardFooter>
                     </Card>

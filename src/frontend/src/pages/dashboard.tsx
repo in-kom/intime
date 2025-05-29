@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Plus, FolderKanban, Database, Calendar } from "lucide-react";
+import { Plus, FolderKanban, Database, Calendar, GanttChart } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -247,6 +247,12 @@ export default function DashboardPage() {
                   <Button variant="outline" size="sm">
                     <Database className="mr-2 h-4 w-4" />
                     Database
+                  </Button>
+                </Link>
+                <Link to={`/gantt/${project.id}`}>
+                  <Button variant="outline" size="sm">
+                    <GanttChart className="mr-2 h-4 w-4" />
+                    Gantt
                   </Button>
                 </Link>
               </div>

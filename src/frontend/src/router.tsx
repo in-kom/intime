@@ -9,6 +9,7 @@ import CalendarPage from "./pages/calendar";
 import ProjectDetailsPage from "./pages/project-details";
 import CompanySettingsPage from "@/pages/company-settings";
 import UserSettingsPage from "@/pages/user-settings";
+import GanttPage from "@/pages/gantt";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { ProjectsProvider } from "./contexts/projects-context";
@@ -63,6 +64,7 @@ const router = createBrowserRouter([
         element: <CompanySettingsPage />,
       },
       { path: "/user-settings", element: <UserSettingsPage /> },
+      { path: "/gantt/:projectId", element: <GanttPage /> },
     ],
   },
 ]);
