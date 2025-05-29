@@ -248,7 +248,7 @@ export const DatabaseView = forwardRef(function DatabaseView({
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Tasks</h2>
         <Button onClick={onAddTask}>
@@ -257,10 +257,10 @@ export const DatabaseView = forwardRef(function DatabaseView({
         </Button>
       </div>
       
-      <div className="rounded-md border">
-        <div className="w-full overflow-auto">
-          <table className="w-full caption-bottom">
-            <thead>
+      <div className="rounded-md border flex-1 flex flex-col">
+        <div className="w-full overflow-auto h-[calc(100vh-220px)]">
+          <table className="w-full">
+            <thead className="sticky top-0 z-10 bg-background">
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id} className="border-b bg-muted/50">
                   {headerGroup.headers.map(header => (
