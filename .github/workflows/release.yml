@@ -1,0 +1,69 @@
+# name: Release
+
+# on:
+#   push:
+#     tags:
+#       - 'v*'
+
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+    
+#     steps:
+#     - uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 0
+    
+#     - name: Set up Docker Buildx
+#       uses: docker/setup-buildx-action@v3
+    
+#     - name: Login to Docker Hub
+#       uses: docker/login-action@v3
+#       with:
+#         username: ${{ secrets.DOCKERHUB_USERNAME }}
+#         password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+#     - name: Build and push Backend
+#       uses: docker/build-push-action@v5
+#       with:
+#         context: ./src/backend
+#         push: true
+#         tags: |
+#           yourusername/intime-backend:latest
+#           yourusername/intime-backend:${{ github.ref_name }}
+    
+#     - name: Build and push Frontend
+#       uses: docker/build-push-action@v5
+#       with:
+#         context: ./src/frontend
+#         push: true
+#         tags: |
+#           yourusername/intime-frontend:latest
+#           yourusername/intime-frontend:${{ github.ref_name }}
+    
+#     - name: Generate changelog
+#       id: changelog
+#       uses: metcalfem/changelog-generator@v4.1.0
+    
+#     - name: Create GitHub Release
+#       uses: softprops/action-gh-release@v1
+#       with:
+#         body: |
+#           # Release ${{ github.ref_name }}
+          
+#           ## What's Changed
+#           ${{ steps.changelog.outputs.changelog }}
+          
+#           ## Docker Images
+#           - Backend: `yourusername/intime-backend:${{ github.ref_name }}`
+#           - Frontend: `yourusername/intime-frontend:${{ github.ref_name }}`
+          
+#           ## Deployment
+#           ```bash
+#           docker-compose pull
+#           docker-compose up -d
+#           ```
+#         draft: false
+#         prerelease: false
+#       env:
+#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

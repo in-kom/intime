@@ -1,0 +1,44 @@
+# name: Security Scanning
+
+# on:
+#   push:
+#     branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
+#   schedule:
+#     - cron: '0 0 * * 0'  # Run weekly on Sundays
+
+# jobs:
+#   dependency-scan:
+#     runs-on: ubuntu-latest
+    
+#     steps:
+#     - uses: actions/checkout@v4
+    
+#     - name: Backend dependency scanning
+#       uses: snyk/actions/node@master
+#       with:
+#         args: --all-projects
+#         command: test
+#       env:
+#         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN || '' }}
+#       continue-on-error: true
+    
+#     - name: Initialize CodeQL
+#       uses: github/codeql-action/init@v2
+#       with:
+#         languages: javascript, typescript
+
+#     - name: Code scanning
+#       uses: github/codeql-action/analyze@v2
+#       continue-on-error: true
+    
+#     - name: Docker image scanning
+#       uses: aquasecurity/trivy-action@master
+#       with:
+#         scan-type: 'fs'
+#         format: 'table'
+#         exit-code: '1'
+#         ignore-unfixed: true
+#         severity: 'CRITICAL,HIGH'
+#       continue-on-error: true
