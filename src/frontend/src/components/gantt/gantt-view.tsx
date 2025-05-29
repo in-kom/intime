@@ -230,6 +230,9 @@ export const GanttView = forwardRef(function GanttView(
   };
 
   const getVisibleTasks = () => {
+    // Return empty array if no tasks
+    if (!tasks || tasks.length === 0) return [];
+    
     // Use a recursive approach to maintain proper hierarchy
     const result: Task[] = [];
 
@@ -329,6 +332,8 @@ export const GanttView = forwardRef(function GanttView(
   }, [viewRange]); // Recalculate when view range changes
 
   const getTaskBar = (task: Task) => {
+    if (!task) return { visible: false, left: "0px", width: "0px", colorClass: "", status: "TODO" };
+    
     const days = getDaysArray();
     const dayWidth = calculatedDayWidth;
 
@@ -482,7 +487,7 @@ export const GanttView = forwardRef(function GanttView(
   };
 
   const calculateProjectMetrics = () => {
-    if (tasks.length === 0) return null;
+    if (!tasks || tasks.length === 0) return null;
 
     const delayedTasks = tasks.filter((task) => {
       const { actual } = getTaskBar(task);
@@ -513,6 +518,9 @@ export const GanttView = forwardRef(function GanttView(
     // Clear existing lines to prevent duplicates
     leaderLinesRef.current.forEach((line) => line.remove());
     leaderLinesRef.current = [];
+
+    // Don't proceed if there are no tasks
+    if (!tasks || tasks.length === 0) return;
 
     // Get the scroll container for setting the proper parent container
     const scrollContainer = scrollContainerRef.current;
@@ -897,422 +905,428 @@ export const GanttView = forwardRef(function GanttView(
         </Button>
       </div>
 
-      <div
-        className="flex-1 overflow-auto border border-border rounded-md relative"
-        ref={scrollContainerRef}
-        style={{
-          isolation: "isolate", // Create a new stacking context
-          contain: "paint", // Improve performance and containment
-          position: "relative", // Ensure proper stacking context
-          zIndex: 0 // Base z-index for the container
-        }}
-      >
-        <div className="flex">
-          <div className="w-48 shrink-0 border-r border-border bg-card sticky left-0 z-20">
-            <div className="h-10 border-b border-border flex items-center px-4 font-medium">
-              Task
-            </div>
-            {getVisibleTasks().map((task) => {
-              const { isDelayed, isAheadOfSchedule, status } = getTaskBar(task);
-              const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-              const hasDependencies =
-                task.dependencies && task.dependencies.length > 0;
-              const isExpanded = expandedTasks.has(task.id);
-              const indentPadding = getTaskIndent(task);
-              const isDependency = !!(task as any)._isDependencyOf;
-
-              return (
-                <div
-                  key={task.id}
-                  className={`h-16 border-b border-border flex items-center px-4 text-sm ${
-                    isDependency ? "bg-blue-50 dark:bg-blue-900/10" : ""
-                  }`}
-                  ref={(el) => {
-                    if (el) {
-                      taskElementsRef.current.set(task.id, el);
-                    } else {
-                      taskElementsRef.current.delete(task.id);
-                    }
-                  }}
-                >
-                  <div
-                    className="truncate flex items-center gap-1"
-                    style={{ paddingLeft: `${indentPadding}px` }}
-                  >
-                    {hasSubtasks && (
-                      <button
-                        className="w-4 h-4 flex items-center justify-center hover:cursor-pointer"
-                        onClick={() => toggleTaskExpansion(task.id)}
-                      >
-                        {isExpanded ? "−" : "+"}
-                      </button>
-                    )}
-                    {!hasSubtasks && hasDependencies && (
-                      <button
-                        className="w-4 h-4 flex items-center justify-center hover:cursor-pointer"
-                        onClick={() => toggleTaskExpansion(task.id)}
-                      >
-                        {isExpanded ? "−" : "+"}
-                      </button>
-                    )}
-                    {task.parentId && (
-                      <span className="w-2 h-2 rounded-full bg-gray-400 mr-1" />
-                    )}
-                    {(task as any)._isDependencyOf && (
-                      <span
-                        className="w-2 h-2 transform rotate-45 bg-blue-400 mr-1"
-                        title="Dependency"
-                      />
-                    )}
-                    {isDelayed && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertTriangle className="h-3 w-3 text-red-500" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Task is delayed</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    {isAheadOfSchedule && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <CheckCircle className="h-3 w-3 text-green-500" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Completed ahead of schedule</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    {status === "DONE" && !isAheadOfSchedule && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <CheckCircle className="h-3 w-3 text-blue-500" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Task completed</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    <div className="w-full">
-                      <p className="line-clamp-2 text-ellipsis">{task.title}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+      {tasks.length === 0 ? (
+        <div className="flex-1 border border-border rounded-md flex items-center justify-center text-muted-foreground p-6">
+          <div className="text-center">
+            <p className="mb-4">No tasks found in this project.</p>
+            <Button onClick={onAddTask} variant="default">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Your First Task
+            </Button>
           </div>
-
-          <div className="relative" style={{ zIndex: 10 }}>
-            <div
-              className="h-10 border-b border-border flex sticky left-0 bg-background z-20"
-              style={{ width: `${days.length * calculatedDayWidth}px` }}
-            >
-              {days.map((day, i) => (
-                <div
-                  key={i}
-                  className="text-center border-r border-border text-xs flex flex-col justify-center"
-                  style={{
-                    width: `${calculatedDayWidth}px`,
-                    minWidth: `${calculatedDayWidth}px`,
-                  }}
-                >
-                  <div>{format(day, "MMM d")}</div>
-                  <div className="text-muted-foreground">
-                    {format(day, "EEE")}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ width: `${days.length * calculatedDayWidth}px` }}>
+        </div>
+      ) : (
+        <div
+          className="flex-1 overflow-auto border border-border rounded-md relative"
+          ref={scrollContainerRef}
+          style={{
+            isolation: "isolate",
+            contain: "paint",
+            position: "relative",
+            zIndex: 0
+          }}
+        >
+          <div className="flex">
+            <div className="w-48 shrink-0 border-r border-border bg-card sticky left-0 z-20">
+              <div className="h-10 border-b border-border flex items-center px-4 font-medium">
+                Task
+              </div>
               {getVisibleTasks().map((task) => {
-                const { visible, left, width, colorClass, actual } =
-                  getTaskBar(task);
+                const { isDelayed, isAheadOfSchedule, status } = getTaskBar(task);
+                const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                const hasDependencies =
+                  task.dependencies && task.dependencies.length > 0;
+                const isExpanded = expandedTasks.has(task.id);
+                const indentPadding = getTaskIndent(task);
+                const isDependency = !!(task as any)._isDependencyOf;
 
                 return (
                   <div
                     key={task.id}
-                    className="h-16 border-b border-border relative"
+                    className={`h-16 border-b border-border flex items-center px-4 text-sm ${
+                      isDependency ? "bg-blue-50 dark:bg-blue-900/10" : ""
+                    }`}
+                    ref={(el) => {
+                      if (el) {
+                        taskElementsRef.current.set(task.id, el);
+                      } else {
+                        taskElementsRef.current.delete(task.id);
+                      }
+                    }}
                   >
-                    {visible && (
-                      <>
-                        <div
-                          className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs cursor-pointer`}
-                          style={{ left, width, zIndex: 15 }}
-                          onClick={() => onEditTask(task)}
-                          ref={(el) => {
-                            // Store reference to the task bar element
-                            if (el) {
-                              taskBarElementsRef.current.set(task.id, el);
-                            } else {
-                              taskBarElementsRef.current.delete(task.id);
-                            }
-                          }}
+                    <div
+                      className="truncate flex items-center gap-1"
+                      style={{ paddingLeft: `${indentPadding}px` }}
+                    >
+                      {hasSubtasks && (
+                        <button
+                          className="w-4 h-4 flex items-center justify-center hover:cursor-pointer"
+                          onClick={() => toggleTaskExpansion(task.id)}
                         >
-                          <div className="truncate">
-                            {showActual ? `${task.title} - Actual` : `${task.title} - Planned`}
-                          </div>
-                        </div>
-
-                        {showActual && actual && (
-                          <div
-                            className="absolute h-0.5 top-8 bg-white border border-dashed border-black"
-                            style={{
-                              left,
-                              width: `${
-                                (actual.plannedPercentage / 100) *
-                                parseFloat(width)
-                              }px`,
-                              pointerEvents: "none" // Prevent this from capturing hover events
-                            }}
-                          ></div>
-                        )}
-
-                        {showActual && actual && (
-                          <TooltipProvider delayDuration={100}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div
-                                  className={`absolute h-6 top-5 rounded shadow-sm flex items-center px-2 text-white text-xs cursor-pointer hover:brightness-110 ${
-                                    actual.startDelay > 0
-                                      ? "bg-red-500"
-                                      : actual.startDelay < 0
-                                      ? "bg-green-500"
-                                      : colorClass
-                                  }`}
-                                  style={{
-                                    left: actual.left,
-                                    width: actual.width,
-                                    zIndex: 30, // Increased z-index to ensure it's above other elements
-                                    pointerEvents: "auto"
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEditTask(task);
-                                  }}
-                                  aria-haspopup="true"
-                                  data-state="closed"
-                                  tabIndex={0} // Make it focusable for accessibility
-                                >
-                                  <div className="truncate flex justify-between w-full">
-                                    <span>{task.title} - Actual</span>
-                                    {actual.isCompleted && (
-                                      <span className="font-semibold">
-                                        100%
-                                      </span>
-                                    )}
-                                    {!actual.isCompleted &&
-                                      task.status !== "TODO" && (
-                                        <span className="font-semibold">
-                                          {actual.completionPercentage}%
-                                        </span>
-                                      )}
-                                  </div>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="w-60 z-50">
-                                <div className="text-xs space-y-1">
-                                  <div className="font-semibold border-b pb-1 mb-1">
-                                    Task Timeline Analysis
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-x-2">
-                                    <p className="text-muted-foreground">
-                                      Status:
-                                    </p>
-                                    <p className="font-medium">
-                                      {task.status.replace("_", " ")}
-                                    </p>
-
-                                    <p className="text-muted-foreground">
-                                      Planned start:
-                                    </p>
-                                    <p>
-                                      {task.startDate
-                                        ? format(
-                                            parseISO(task.startDate),
-                                            "MMM d, yyyy"
-                                          )
-                                        : "Not set"}
-                                    </p>
-
-                                    <p className="text-muted-foreground">
-                                      Actual start:
-                                    </p>
-                                    <p>
-                                      {task.actualStartDate
-                                        ? format(
-                                            parseISO(task.actualStartDate),
-                                            "MMM d, yyyy"
-                                          )
-                                        : "Not started"}
-                                    </p>
-
-                                    <p className="text-muted-foreground">
-                                      Planned end:
-                                    </p>
-                                    <p>
-                                      {task.dueDate
-                                        ? format(
-                                            parseISO(task.dueDate),
-                                            "MMM d, yyyy"
-                                          )
-                                        : "Not set"}
-                                    </p>
-
-                                    <p className="text-muted-foreground">
-                                      Actual end:
-                                    </p>
-                                    <p>
-                                      {task.actualEndDate
-                                        ? format(
-                                            parseISO(task.actualEndDate),
-                                            "MMM d, yyyy"
-                                          )
-                                        : "Not completed"}
-                                    </p>
-                                  </div>
-
-                                  <div className="border-t pt-1 mt-1">
-                                    <p className="text-muted-foreground">
-                                      Start Variance:
-                                    </p>
-                                    <p
-                                      className={
-                                        actual.startDelay > 0
-                                          ? "text-red-500"
-                                          : actual.startDelay < 0
-                                          ? "text-green-500"
-                                          : ""
-                                      }
-                                    >
-                                      {actual.startDelay > 0
-                                        ? `${actual.startDelay} days late`
-                                        : actual.startDelay < 0
-                                        ? `${Math.abs(
-                                            actual.startDelay
-                                          )} days early`
-                                        : "On time"}
-                                    </p>
-
-                                    {actual.endDelay !== null && (
-                                      <>
-                                        <p className="text-muted-foreground">
-                                          End Variance:
-                                        </p>
-                                        <p
-                                          className={
-                                            actual.endDelay > 0
-                                              ? "text-red-500"
-                                              : actual.endDelay < 0
-                                              ? "text-green-500"
-                                              : ""
-                                          }
-                                        >
-                                          {actual.endDelay > 0
-                                            ? `${actual.endDelay} days late`
-                                            : actual.endDelay < 0
-                                            ? `${Math.abs(
-                                                actual.endDelay
-                                              )} days early`
-                                            : "On time"}
-                                        </p>
-                                      </>
-                                    )}
-
-                                    {actual.efficiency !== null && (
-                                      <>
-                                        <p className="text-muted-foreground">
-                                          Efficiency:
-                                        </p>
-                                        <p
-                                          className={
-                                            actual.efficiency > 100
-                                              ? "text-green-500"
-                                              : actual.efficiency < 100
-                                              ? "text-red-500"
-                                              : ""
-                                          }
-                                        >
-                                          {actual.efficiency}%
-                                          {actual.efficiency > 100
-                                            ? " (faster than planned)"
-                                            : actual.efficiency < 100
-                                            ? " (slower than planned)"
-                                            : " (as planned)"}
-                                        </p>
-                                      </>
-                                    )}
-
-                                    {!actual.isCompleted && (
-                                      <p className="font-semibold mt-1">
-                                        {actual.isDelayed
-                                          ? "Task is behind schedule"
-                                          : "Task in progress"}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 absolute top-5 text-white hover:bg-white/20 z-10"
-                              style={{
-                                left: `calc(${left} + ${width} - 28px)`,
-                              }}
-                            >
-                              <MoreHorizontal className="h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onEditTask(task)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                onAddTask();
-                              }}
-                            >
-                              <Plus className="mr-2 h-4 w-4" />
-                              Add Subtask
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => onDeleteTask(task.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </>
-                    )}
+                          {isExpanded ? "−" : "+"}
+                        </button>
+                      )}
+                      {!hasSubtasks && hasDependencies && (
+                        <button
+                          className="w-4 h-4 flex items-center justify-center hover:cursor-pointer"
+                          onClick={() => toggleTaskExpansion(task.id)}
+                        >
+                          {isExpanded ? "−" : "+"}
+                        </button>
+                      )}
+                      {task.parentId && (
+                        <span className="w-2 h-2 rounded-full bg-gray-400 mr-1" />
+                      )}
+                      {(task as any)._isDependencyOf && (
+                        <span
+                          className="w-2 h-2 transform rotate-45 bg-blue-400 mr-1"
+                          title="Dependency"
+                        />
+                      )}
+                      {isDelayed && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertTriangle className="h-3 w-3 text-red-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Task is delayed</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {isAheadOfSchedule && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Completed ahead of schedule</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {status === "DONE" && !isAheadOfSchedule && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CheckCircle className="h-3 w-3 text-blue-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Task completed</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      <div className="w-full">
+                        <p className="line-clamp-2 text-ellipsis">{task.title}</p>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-        </div>
-      </div>
 
-      {tasks.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-          No tasks found. Click "Add Task" to create one.
+            <div className="relative" style={{ zIndex: 10 }}>
+              <div
+                className="h-10 border-b border-border flex sticky left-0 bg-background z-20"
+                style={{ width: `${days.length * calculatedDayWidth}px` }}
+              >
+                {days.map((day, i) => (
+                  <div
+                    key={i}
+                    className="text-center border-r border-border text-xs flex flex-col justify-center"
+                    style={{
+                      width: `${calculatedDayWidth}px`,
+                      minWidth: `${calculatedDayWidth}px`,
+                    }}
+                  >
+                    <div>{format(day, "MMM d")}</div>
+                    <div className="text-muted-foreground">
+                      {format(day, "EEE")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ width: `${days.length * calculatedDayWidth}px` }}>
+                {getVisibleTasks().map((task) => {
+                  const { visible, left, width, colorClass, actual } =
+                    getTaskBar(task);
+
+                  return (
+                    <div
+                      key={task.id}
+                      className="h-16 border-b border-border relative"
+                    >
+                      {visible && (
+                        <>
+                          <div
+                            className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs cursor-pointer`}
+                            style={{ left, width, zIndex: 15 }}
+                            onClick={() => onEditTask(task)}
+                            ref={(el) => {
+                              // Store reference to the task bar element
+                              if (el) {
+                                taskBarElementsRef.current.set(task.id, el);
+                              } else {
+                                taskBarElementsRef.current.delete(task.id);
+                              }
+                            }}
+                          >
+                            <div className="truncate">
+                              {showActual ? `${task.title} - Actual` : `${task.title} - Planned`}
+                            </div>
+                          </div>
+
+                          {showActual && actual && (
+                            <div
+                              className="absolute h-0.5 top-8 bg-white border border-dashed border-black"
+                              style={{
+                                left,
+                                width: `${
+                                  (actual.plannedPercentage / 100) *
+                                  parseFloat(width)
+                                }px`,
+                                pointerEvents: "none" // Prevent this from capturing hover events
+                              }}
+                            ></div>
+                          )}
+
+                          {showActual && actual && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className={`absolute h-6 top-5 rounded shadow-sm flex items-center px-2 text-white text-xs cursor-pointer hover:brightness-110 ${
+                                      actual.startDelay > 0
+                                        ? "bg-red-500"
+                                        : actual.startDelay < 0
+                                        ? "bg-green-500"
+                                        : colorClass
+                                    }`}
+                                    style={{
+                                      left: actual.left,
+                                      width: actual.width,
+                                      zIndex: 30, // Increased z-index to ensure it's above other elements
+                                      pointerEvents: "auto"
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onEditTask(task);
+                                    }}
+                                    aria-haspopup="true"
+                                    data-state="closed"
+                                    tabIndex={0} // Make it focusable for accessibility
+                                  >
+                                    <div className="truncate flex justify-between w-full">
+                                      <span>{task.title} - Actual</span>
+                                      {actual.isCompleted && (
+                                        <span className="font-semibold">
+                                          100%
+                                        </span>
+                                      )}
+                                      {!actual.isCompleted &&
+                                        task.status !== "TODO" && (
+                                          <span className="font-semibold">
+                                            {actual.completionPercentage}%
+                                          </span>
+                                        )}
+                                    </div>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="w-60 z-50">
+                                  <div className="text-xs space-y-1">
+                                    <div className="font-semibold border-b pb-1 mb-1">
+                                      Task Timeline Analysis
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-x-2">
+                                      <p className="text-muted-foreground">
+                                        Status:
+                                      </p>
+                                      <p className="font-medium">
+                                        {task.status.replace("_", " ")}
+                                      </p>
+
+                                      <p className="text-muted-foreground">
+                                        Planned start:
+                                      </p>
+                                      <p>
+                                        {task.startDate
+                                          ? format(
+                                              parseISO(task.startDate),
+                                              "MMM d, yyyy"
+                                            )
+                                          : "Not set"}
+                                      </p>
+
+                                      <p className="text-muted-foreground">
+                                        Actual start:
+                                      </p>
+                                      <p>
+                                        {task.actualStartDate
+                                          ? format(
+                                              parseISO(task.actualStartDate),
+                                              "MMM d, yyyy"
+                                            )
+                                          : "Not started"}
+                                      </p>
+
+                                      <p className="text-muted-foreground">
+                                        Planned end:
+                                      </p>
+                                      <p>
+                                        {task.dueDate
+                                          ? format(
+                                              parseISO(task.dueDate),
+                                              "MMM d, yyyy"
+                                            )
+                                          : "Not set"}
+                                      </p>
+
+                                      <p className="text-muted-foreground">
+                                        Actual end:
+                                      </p>
+                                      <p>
+                                        {task.actualEndDate
+                                          ? format(
+                                              parseISO(task.actualEndDate),
+                                              "MMM d, yyyy"
+                                            )
+                                          : "Not completed"}
+                                      </p>
+                                    </div>
+
+                                    <div className="border-t pt-1 mt-1">
+                                      <p className="text-muted-foreground">
+                                        Start Variance:
+                                      </p>
+                                      <p
+                                        className={
+                                          actual.startDelay > 0
+                                            ? "text-red-500"
+                                            : actual.startDelay < 0
+                                            ? "text-green-500"
+                                            : ""
+                                        }
+                                      >
+                                        {actual.startDelay > 0
+                                          ? `${actual.startDelay} days late`
+                                          : actual.startDelay < 0
+                                          ? `${Math.abs(
+                                              actual.startDelay
+                                            )} days early`
+                                          : "On time"}
+                                      </p>
+
+                                      {actual.endDelay !== null && (
+                                        <>
+                                          <p className="text-muted-foreground">
+                                            End Variance:
+                                          </p>
+                                          <p
+                                            className={
+                                              actual.endDelay > 0
+                                                ? "text-red-500"
+                                                : actual.endDelay < 0
+                                                ? "text-green-500"
+                                                : ""
+                                            }
+                                          >
+                                            {actual.endDelay > 0
+                                              ? `${actual.endDelay} days late`
+                                              : actual.endDelay < 0
+                                              ? `${Math.abs(
+                                                  actual.endDelay
+                                                )} days early`
+                                              : "On time"}
+                                          </p>
+                                        </>
+                                      )}
+
+                                      {actual.efficiency !== null && (
+                                        <>
+                                          <p className="text-muted-foreground">
+                                            Efficiency:
+                                          </p>
+                                          <p
+                                            className={
+                                              actual.efficiency > 100
+                                                ? "text-green-500"
+                                                : actual.efficiency < 100
+                                                ? "text-red-500"
+                                                : ""
+                                            }
+                                          >
+                                            {actual.efficiency}%
+                                            {actual.efficiency > 100
+                                              ? " (faster than planned)"
+                                              : actual.efficiency < 100
+                                              ? " (slower than planned)"
+                                              : " (as planned)"}
+                                          </p>
+                                        </>
+                                      )}
+
+                                      {!actual.isCompleted && (
+                                        <p className="font-semibold mt-1">
+                                          {actual.isDelayed
+                                            ? "Task is behind schedule"
+                                            : "Task in progress"}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 absolute top-5 text-white hover:bg-white/20 z-10"
+                                style={{
+                                  left: `calc(${left} + ${width} - 28px)`,
+                                }}
+                              >
+                                <MoreHorizontal className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => onEditTask(task)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  onAddTask();
+                                }}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Subtask
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => onDeleteTask(task.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
