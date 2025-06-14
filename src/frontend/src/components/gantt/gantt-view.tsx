@@ -84,10 +84,17 @@ interface GanttViewProps {
   onAddTask: () => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
+  canEdit?: boolean; // <-- Add canEdit prop (optional)
 }
 
 export const GanttView = forwardRef(function GanttView(
-  { projectId, onAddTask, onEditTask, onDeleteTask }: GanttViewProps,
+  {
+    projectId,
+    onAddTask,
+    onEditTask,
+    onDeleteTask,
+    canEdit = false,
+  }: GanttViewProps,
   ref
 ) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -232,7 +239,7 @@ export const GanttView = forwardRef(function GanttView(
   const getVisibleTasks = () => {
     // Return empty array if no tasks
     if (!tasks || tasks.length === 0) return [];
-    
+
     // Use a recursive approach to maintain proper hierarchy
     const result: Task[] = [];
 
@@ -313,7 +320,10 @@ export const GanttView = forwardRef(function GanttView(
     // Calculate optimal day width to fill available space
     // (but not less than minDayWidth)
     const availableWidth = containerWidth - 48; // Account for task list column (w-48)
-    const optimalDayWidth = Math.max(minDayWidth, availableWidth / numberOfDays);
+    const optimalDayWidth = Math.max(
+      minDayWidth,
+      availableWidth / numberOfDays
+    );
 
     setCalculatedDayWidth(optimalDayWidth);
   };
@@ -332,8 +342,15 @@ export const GanttView = forwardRef(function GanttView(
   }, [viewRange]); // Recalculate when view range changes
 
   const getTaskBar = (task: Task) => {
-    if (!task) return { visible: false, left: "0px", width: "0px", colorClass: "", status: "TODO" };
-    
+    if (!task)
+      return {
+        visible: false,
+        left: "0px",
+        width: "0px",
+        colorClass: "",
+        status: "TODO",
+      };
+
     const days = getDaysArray();
     const dayWidth = calculatedDayWidth;
 
@@ -536,8 +553,8 @@ export const GanttView = forwardRef(function GanttView(
       if (!expandedTasks.has(parent.id)) return;
 
       // Get visible subtasks and sort by start date
-      const subtasks = parent.subtasks!
-        .filter((subtask) => {
+      const subtasks = parent
+        .subtasks!.filter((subtask) => {
           // Check if both task element and bar element exist
           const barElement = taskBarElementsRef.current.get(subtask.id);
           return barElement != null;
@@ -598,14 +615,15 @@ export const GanttView = forwardRef(function GanttView(
                 dropShadow: true,
                 outlineColor: "white",
                 outline: true,
-                dash: { len: 10, gap: 3 }
+                dash: { len: 10, gap: 3 },
               }
             );
 
             // Set z-index for the leader line elements
-            const leaderLineElements = document.getElementsByClassName('leader-line');
+            const leaderLineElements =
+              document.getElementsByClassName("leader-line");
             for (let i = 0; i < leaderLineElements.length; i++) {
-              (leaderLineElements[i] as HTMLElement).style.zIndex = '-1';
+              (leaderLineElements[i] as HTMLElement).style.zIndex = "-1";
             }
 
             leaderLinesRef.current.push(leaderLine);
@@ -794,9 +812,9 @@ export const GanttView = forwardRef(function GanttView(
               onSelect={(range) => {
                 if (range?.from) {
                   // Allow selecting just a start date first
-                  setDateRange({ 
-                    from: range.from, 
-                    to: range.to || dateRange.to 
+                  setDateRange({
+                    from: range.from,
+                    to: range.to || dateRange.to,
                   });
                 }
               }}
@@ -825,8 +843,8 @@ export const GanttView = forwardRef(function GanttView(
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleApplyDateRange} 
+            <Button
+              onClick={handleApplyDateRange}
               disabled={!dateRange.from || !dateRange.to}
             >
               Apply Range
@@ -899,20 +917,24 @@ export const GanttView = forwardRef(function GanttView(
       )}
 
       <div className="mb-4">
-        <Button onClick={onAddTask}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Task
-        </Button>
+        {canEdit && (
+          <Button onClick={onAddTask}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Task
+          </Button>
+        )}
       </div>
 
       {tasks.length === 0 ? (
         <div className="flex-1 border border-border rounded-md flex items-center justify-center text-muted-foreground p-6">
           <div className="text-center">
             <p className="mb-4">No tasks found in this project.</p>
-            <Button onClick={onAddTask} variant="default">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Your First Task
-            </Button>
+            {canEdit && (
+              <Button onClick={onAddTask} variant="default">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Your First Task
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -923,7 +945,7 @@ export const GanttView = forwardRef(function GanttView(
             isolation: "isolate",
             contain: "paint",
             position: "relative",
-            zIndex: 0
+            zIndex: 0,
           }}
         >
           <div className="flex">
@@ -932,7 +954,8 @@ export const GanttView = forwardRef(function GanttView(
                 Task
               </div>
               {getVisibleTasks().map((task) => {
-                const { isDelayed, isAheadOfSchedule, status } = getTaskBar(task);
+                const { isDelayed, isAheadOfSchedule, status } =
+                  getTaskBar(task);
                 const hasSubtasks = task.subtasks && task.subtasks.length > 0;
                 const hasDependencies =
                   task.dependencies && task.dependencies.length > 0;
@@ -1020,7 +1043,9 @@ export const GanttView = forwardRef(function GanttView(
                         </TooltipProvider>
                       )}
                       <div className="w-full">
-                        <p className="line-clamp-2 text-ellipsis">{task.title}</p>
+                        <p className="line-clamp-2 text-ellipsis">
+                          {task.title}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1063,9 +1088,9 @@ export const GanttView = forwardRef(function GanttView(
                       {visible && (
                         <>
                           <div
-                            className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs cursor-pointer`}
+                            className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs ${canEdit ? "cursor-pointer" : "cursor-default"}`}
                             style={{ left, width, zIndex: 15 }}
-                            onClick={() => onEditTask(task)}
+                            onClick={canEdit ? () => onEditTask(task) : undefined}
                             ref={(el) => {
                               // Store reference to the task bar element
                               if (el) {
@@ -1076,7 +1101,9 @@ export const GanttView = forwardRef(function GanttView(
                             }}
                           >
                             <div className="truncate">
-                              {showActual ? `${task.title} - Actual` : `${task.title} - Planned`}
+                              {showActual
+                                ? `${task.title} - Actual`
+                                : `${task.title} - Planned`}
                             </div>
                           </div>
 
@@ -1089,7 +1116,7 @@ export const GanttView = forwardRef(function GanttView(
                                   (actual.plannedPercentage / 100) *
                                   parseFloat(width)
                                 }px`,
-                                pointerEvents: "none" // Prevent this from capturing hover events
+                                pointerEvents: "none", // Prevent this from capturing hover events
                               }}
                             ></div>
                           )}
@@ -1099,7 +1126,7 @@ export const GanttView = forwardRef(function GanttView(
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div
-                                    className={`absolute h-6 top-5 rounded shadow-sm flex items-center px-2 text-white text-xs cursor-pointer hover:brightness-110 ${
+                                    className={`absolute h-6 top-5 rounded shadow-sm flex items-center px-2 text-white text-xs ${canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"} ${
                                       actual.startDelay > 0
                                         ? "bg-red-500"
                                         : actual.startDelay < 0
@@ -1109,16 +1136,20 @@ export const GanttView = forwardRef(function GanttView(
                                     style={{
                                       left: actual.left,
                                       width: actual.width,
-                                      zIndex: 30, // Increased z-index to ensure it's above other elements
-                                      pointerEvents: "auto"
+                                      zIndex: 30,
+                                      pointerEvents: canEdit ? "auto" : "none",
                                     }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditTask(task);
-                                    }}
+                                    onClick={
+                                      canEdit
+                                        ? (e) => {
+                                            e.stopPropagation();
+                                            onEditTask(task);
+                                          }
+                                        : undefined
+                                    }
                                     aria-haspopup="true"
                                     data-state="closed"
-                                    tabIndex={0} // Make it focusable for accessibility
+                                    tabIndex={0}
                                   >
                                     <div className="truncate flex justify-between w-full">
                                       <span>{task.title} - Actual</span>
@@ -1136,7 +1167,10 @@ export const GanttView = forwardRef(function GanttView(
                                     </div>
                                   </div>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="w-60 z-50">
+                                <TooltipContent
+                                  side="top"
+                                  className="w-60 z-50"
+                                >
                                   <div className="text-xs space-y-1">
                                     <div className="font-semibold border-b pb-1 mb-1">
                                       Task Timeline Analysis
@@ -1284,41 +1318,46 @@ export const GanttView = forwardRef(function GanttView(
                             </TooltipProvider>
                           )}
 
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 absolute top-5 text-white hover:bg-white/20 z-10"
-                                style={{
-                                  left: `calc(${left} + ${width} - 28px)`,
-                                }}
-                              >
-                                <MoreHorizontal className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => onEditTask(task)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  onAddTask();
-                                }}
-                              >
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add Subtask
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => onDeleteTask(task.id)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          {/* Hide the "..." menu if canEdit is false */}
+                          {canEdit && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 absolute top-5 text-white hover:bg-white/20 z-10"
+                                  style={{
+                                    left: `calc(${left} + ${width} - 28px)`,
+                                  }}
+                                >
+                                  <MoreHorizontal className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => onEditTask(task)}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    onAddTask();
+                                  }}
+                                >
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Add Subtask
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => onDeleteTask(task.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </>
                       )}
                     </div>

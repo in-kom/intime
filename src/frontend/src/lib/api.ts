@@ -68,6 +68,8 @@ export const companiesAPI = {
     api.post(`/companies/${id}/members`, { email }),
   removeMember: (id: string, userId: string) =>
     api.delete(`/companies/${id}/members/${userId}`),
+  updateMemberRole: (companyId: string, userId: string, role: string) =>
+    api.patch(`/companies/${companyId}/members/${userId}/role`, { role }),
   // New image-related methods
   uploadImage: (id: string, imageFile: File) => {
     const formData = new FormData();

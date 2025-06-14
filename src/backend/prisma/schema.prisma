@@ -8,28 +8,47 @@ datasource db {
 }
 
 model User {
-  id             String    @id @default(uuid())
-  email          String    @unique
+  id             String         @id @default(uuid())
+  email          String         @unique
   password       String
   name           String
   imageUrl       String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  companies      Company[] @relation("CompanyMembers")
-  ownedCompanies Company[] @relation("CompanyOwner")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  companies      CompanyMember[]
+  ownedCompanies Company[]      @relation("CompanyOwner")
 }
 
 model Company {
-  id          String    @id @default(uuid())
+  id          String          @id @default(uuid())
   name        String
   description String?
   imageUrl    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   ownerId     String
-  owner       User      @relation("CompanyOwner", fields: [ownerId], references: [id])
-  members     User[]    @relation("CompanyMembers")
+  owner       User            @relation("CompanyOwner", fields: [ownerId], references: [id])
+  members     CompanyMember[]
   projects    Project[]
+}
+
+model CompanyMember {
+  id         String   @id @default(uuid())
+  userId     String
+  companyId  String
+  role       CompanyRole @default(READER)
+  user       User     @relation(fields: [userId], references: [id])
+  company    Company  @relation(fields: [companyId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, companyId])
+}
+
+enum CompanyRole {
+  EDITOR
+  COMMENTER
+  READER
 }
 
 model Project {

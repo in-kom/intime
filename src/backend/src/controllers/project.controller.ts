@@ -4,17 +4,26 @@ import { AppError } from '../middleware/error.middleware';
 
 const prisma = new PrismaClient();
 
+// Helper to get user's role in a company
+async function getUserCompanyRole(userId: string, companyId: string) {
+  if (!userId || !companyId) return null;
+  const member = await prisma.companyMember.findUnique({
+    where: { userId_companyId: { userId, companyId } }
+  });
+  return member?.role || null;
+}
+
 // Get all projects for a company
 export const getProjects = async (req: Request, res: Response) => {
   const { companyId } = req.params;
 
-  // Check if user has access to company
+  // Check if user has access to company (any role)
   const company = await prisma.company.findFirst({
     where: {
       id: companyId,
       OR: [
         { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
+        { members: { some: { userId: req.user!.id } } }
       ]
     }
   });
@@ -48,7 +57,7 @@ export const getProject = async (req: Request, res: Response) => {
             select: { id: true, name: true, email: true }
           },
           members: {
-            select: { id: true, name: true, email: true }
+            include: { user: { select: { id: true, name: true, email: true } } }
           }
         }
       },
@@ -60,9 +69,9 @@ export const getProject = async (req: Request, res: Response) => {
     throw new AppError('Project not found', 404);
   }
 
-  // Check if user has access to project's company
+  // Check if user has access to project's company (any role)
   const isOwner = project.company.ownerId === req.user!.id;
-  const isMember = project.company.members.some(member => member.id === req.user!.id);
+  const isMember = project.company.members.some(member => member.userId === req.user!.id);
 
   if (!isOwner && !isMember) {
     throw new AppError('Not authorized to access this project', 403);
@@ -76,19 +85,26 @@ export const createProject = async (req: Request, res: Response) => {
   const { companyId } = req.params;
   const { name, description } = req.body;
 
-  // Check if user has access to company
+  // Check if user has access to company and is EDITOR or owner
   const company = await prisma.company.findFirst({
     where: {
       id: companyId,
       OR: [
         { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
+        { members: { some: { userId: req.user!.id } } }
       ]
     }
   });
 
   if (!company) {
     throw new AppError('Company not found or you do not have access', 404);
+  }
+
+  const isOwner = company.ownerId === req.user!.id;
+  const role = await getUserCompanyRole(req.user!.id, companyId);
+
+  if (!isOwner && role !== 'EDITOR') {
+    throw new AppError('Not authorized to create projects in this company', 403);
   }
 
   const project = await prisma.project.create({
@@ -121,18 +137,11 @@ export const updateProject = async (req: Request, res: Response) => {
     throw new AppError('Project not found', 404);
   }
 
-  // Check if user has access to project's company
-  const company = await prisma.company.findFirst({
-    where: {
-      id: project.companyId,
-      OR: [
-        { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
-      ]
-    }
-  });
+  // Only EDITORs or owner can update
+  const isOwner = project.company.ownerId === req.user!.id;
+  const role = await getUserCompanyRole(req.user!.id, project.companyId);
 
-  if (!company) {
+  if (!isOwner && role !== 'EDITOR') {
     throw new AppError('Not authorized to update this project', 403);
   }
 
@@ -163,15 +172,8 @@ export const deleteProject = async (req: Request, res: Response) => {
     throw new AppError('Project not found', 404);
   }
 
-  // Check if user is company owner (only owner can delete projects)
-  const company = await prisma.company.findFirst({
-    where: {
-      id: project.companyId,
-      ownerId: req.user!.id
-    }
-  });
-
-  if (!company) {
+  // Only owner can delete
+  if (project.company.ownerId !== req.user!.id) {
     throw new AppError('Not authorized to delete this project', 403);
   }
 
