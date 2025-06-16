@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { token, ...userData } = response.data;
       
       localStorage.setItem("token", token);
+      localStorage.setItem("userId", userData.id); // Store userId in localStorage
       setToken(token);
       setUser(userData);
       navigate("/");
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { token, ...userData } = response.data;
       
       localStorage.setItem("token", token);
+      localStorage.setItem("userId", userData.id); // Store userId in localStorage
       setToken(token);
       setUser(userData);
       navigate("/");
@@ -92,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("userId"); // Also remove userId on logout
     setToken(null);
     setUser(null);
     navigate("/login");
@@ -100,6 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = (userData: any) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
+    if (userData?.id) {
+      localStorage.setItem("userId", userData.id); // Ensure userId is stored on user update
+    }
   };
 
   return (

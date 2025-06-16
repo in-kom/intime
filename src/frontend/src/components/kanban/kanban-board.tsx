@@ -43,13 +43,15 @@ interface KanbanBoardProps {
   onAddTask: (data: TaskFormData) => void;
   onEditTask: (id: string, data: TaskFormData) => void;
   onDeleteTask: (id: string) => void;
+  showTaskActions?: boolean; // New prop to control task actions visibility
 }
 
 export const KanbanBoard = forwardRef(function KanbanBoard({ 
   projectId, 
   onAddTask, 
   onEditTask, 
-  onDeleteTask 
+  onDeleteTask,
+  showTaskActions = true // Default is true, but will be overridden by the value from KanbanPage
 }: KanbanBoardProps, ref) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -198,6 +200,7 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
             onAddTask={handleAddTask}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
+            showTaskActions={showTaskActions} // Make sure this is explicitly passed
           />
           <KanbanColumn
             id="IN_PROGRESS"
@@ -206,6 +209,7 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
             onAddTask={handleAddTask}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
+            showTaskActions={showTaskActions}
           />
           <KanbanColumn
             id="REVIEW"
@@ -214,6 +218,7 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
             onAddTask={handleAddTask}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
+            showTaskActions={showTaskActions}
           />
           <KanbanColumn
             id="DONE"
@@ -222,6 +227,7 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
             onAddTask={handleAddTask}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
+            showTaskActions={showTaskActions}
           />
         </div>
         
@@ -232,6 +238,7 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
                 task={activeTask} 
                 onEdit={handleEditTask}
                 onDelete={handleDeleteTask}
+                showActions={showTaskActions} // Make sure this is explicitly passed
               />
             </div>
           ) : null}

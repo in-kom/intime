@@ -117,6 +117,12 @@ export default function KanbanPage() {
     (project.company?.ownerId === window.localStorage.getItem("userId") ||
       currentUserRole === "EDITOR");
 
+  const canAccessTaskActions =
+    project &&
+    (project.company?.ownerId === window.localStorage.getItem("userId") ||
+      currentUserRole === "EDITOR" ||
+      currentUserRole === "COMMENTER");
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full">Loading...</div>
@@ -139,6 +145,7 @@ export default function KanbanPage() {
           onAddTask={canEditTasks ? handleAddTask : () => {}}
           onEditTask={canEditTasks ? handleEditTask : () => {}}
           onDeleteTask={canEditTasks ? handleDeleteTask : () => {}}
+          showTaskActions={!!canAccessTaskActions}
           ref={kanbanBoardRef}
         />
       </div>

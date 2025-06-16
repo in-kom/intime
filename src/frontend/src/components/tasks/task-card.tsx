@@ -1,13 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
-import { 
-  CalendarIcon, 
-  MoreHorizontal,
-  Trash2,
-  Pencil
-} from "lucide-react";
-import { 
+import { CalendarIcon, MoreHorizontal, Trash2, Pencil } from "lucide-react";
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -37,9 +32,16 @@ interface TaskCardProps {
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
   disableDrag?: boolean;
+  showActions?: boolean;
 }
 
-export function TaskCard({ task, onEdit, onDelete, disableDrag }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onEdit,
+  onDelete,
+  disableDrag,
+  showActions = true,
+}: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -47,16 +49,16 @@ export function TaskCard({ task, onEdit, onDelete, disableDrag }: TaskCardProps)
     transform,
     transition,
     isDragging,
-  } = useSortable({ 
+  } = useSortable({
     id: task.id,
-    disabled: disableDrag
+    disabled: disableDrag,
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : 'auto',
+    zIndex: isDragging ? 50 : "auto",
   };
 
   const handleEdit = () => {
@@ -65,7 +67,8 @@ export function TaskCard({ task, onEdit, onDelete, disableDrag }: TaskCardProps)
 
   const priorityColors = {
     LOW: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    MEDIUM: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    MEDIUM:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
     HIGH: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
     URGENT: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   };
@@ -76,42 +79,51 @@ export function TaskCard({ task, onEdit, onDelete, disableDrag }: TaskCardProps)
       style={style}
       {...(disableDrag ? {} : attributes)}
       {...(disableDrag ? {} : listeners)}
-      className={`bg-card border border-border rounded-md p-3 mb-2 shadow-sm hover:shadow-md transition-shadow ${disableDrag ? '' : 'cursor-grab active:cursor-grabbing'}`}
+      className={`bg-card border border-border rounded-md p-3 mb-2 shadow-sm hover:shadow-md transition-shadow ${
+        disableDrag ? "" : "cursor-grab active:cursor-grabbing"
+      }`}
     >
       <div className="flex justify-between items-start">
         <h3 className="font-medium text-sm">{task.title}</h3>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleEdit}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit</DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => onDelete(task.id)}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {showActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleEdit}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(task.id)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
-      
+
       {task.description && (
         <p className="text-muted-foreground text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis">
           {task.description}
         </p>
       )}
-      
+
       <div className="flex flex-wrap gap-2 mt-3">
-        <span className={`text-xs px-2 py-1 rounded-full ${priorityColors[task.priority]}`}>
+        <span
+          className={`text-xs px-2 py-1 rounded-full ${
+            priorityColors[task.priority]
+          }`}
+        >
           {task.priority}
         </span>
-        
+
         {task.dueDate && (
           <span className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" />
@@ -119,10 +131,10 @@ export function TaskCard({ task, onEdit, onDelete, disableDrag }: TaskCardProps)
           </span>
         )}
       </div>
-      
+
       {task.tags && task.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {task.tags.map(tag => (
+          {task.tags.map((tag) => (
             <TagBadge key={tag.id} tag={tag} />
           ))}
         </div>
