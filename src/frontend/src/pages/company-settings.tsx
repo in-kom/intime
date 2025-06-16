@@ -34,6 +34,14 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Member {
   id: string;
@@ -68,6 +76,11 @@ export default function CompanySettingsPage() {
   const [, setSelectedImage] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [pendingRoleChange, setPendingRoleChange] = useState<{
+    userId: string;
+    newRole: string;
+  } | null>(null);
   const { user } = useAuth(); // get current user from context
 
   useEffect(() => {
@@ -83,8 +96,7 @@ export default function CompanySettingsPage() {
           (m: any) => m.userId === user?.id
         );
         setCurrentUserRole(
-          member?.role ||
-            (response.data.ownerId === user?.id ? "EDITOR" : null)
+          member?.role || (response.data.ownerId === user?.id ? "EDITOR" : null)
         );
       } catch (error) {
         console.error("Failed to fetch company", error);
@@ -218,13 +230,64 @@ export default function CompanySettingsPage() {
 
   // Update member role
   const handleRoleChange = async (userId: string, newRole: string) => {
+    // Check if user is changing their own role
+    if (userId === user?.id) {
+      setPendingRoleChange({ userId, newRole });
+      setIsRoleDialogOpen(true);
+      return;
+    }
+
+    // Otherwise proceed with role change
+    await updateMemberRole(userId, newRole);
+  };
+
+  // Function to execute the role change
+  const updateMemberRole = async (userId: string, newRole: string) => {
     try {
       await companiesAPI.updateMemberRole(companyId, userId, newRole);
+
+      // Reload company data to ensure all UI components are updated
       const response = await companiesAPI.getById(companyId);
       setCompany(response.data);
-      toast.success("Role updated");
+
+      // Update current user role if this is the current user
+      if (userId === user?.id) {
+        setCurrentUserRole(newRole);
+
+        // If reducing own permissions, might need to reload the component
+        // to apply new permission restrictions
+        if (newRole === "READER" || newRole === "COMMENTER") {
+          // Small delay to ensure the user sees the success message
+          setTimeout(() => {
+            // Force full refresh of the component
+            setIsLoading(true);
+            const refreshData = async () => {
+              try {
+                const refreshResponse = await companiesAPI.getById(companyId);
+                setCompany(refreshResponse.data);
+              } catch (error) {
+                console.error("Failed to refresh data", error);
+              } finally {
+                setIsLoading(false);
+              }
+            };
+            refreshData();
+          }, 1000);
+        }
+      }
+
+      toast.success("Role updated successfully");
     } catch (error) {
       toast.error("Failed to update role");
+    }
+  };
+
+  // Function to confirm self role change
+  const confirmRoleChange = () => {
+    if (pendingRoleChange) {
+      updateMemberRole(pendingRoleChange.userId, pendingRoleChange.newRole);
+      setIsRoleDialogOpen(false);
+      setPendingRoleChange(null);
     }
   };
 
@@ -255,11 +318,9 @@ export default function CompanySettingsPage() {
 
   // Only owner or EDITOR can invite/remove/edit/upload/delete
   const canEditMembers =
-    company &&
-    (company.ownerId === user?.id || currentUserRole === "EDITOR");
+    company && (company.ownerId === user?.id || currentUserRole === "EDITOR");
   const canEditCompany =
-    company &&
-    (company.ownerId === user?.id || currentUserRole === "EDITOR");
+    company && (company.ownerId === user?.id || currentUserRole === "EDITOR");
   const canUploadLogo = canEditCompany;
   const canDeleteLogo = canEditCompany;
 
@@ -364,7 +425,9 @@ export default function CompanySettingsPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-sm font-medium text-primary">Owner</div>
+                    <div className="text-sm font-medium text-primary">
+                      Owner
+                    </div>
                   </div>
 
                   {company.members
@@ -397,7 +460,10 @@ export default function CompanySettingsPage() {
                             value={member.role || "READER"}
                             disabled={!canEditMembers}
                             onValueChange={(value) =>
-                              handleRoleChange(member.userId || member.id, value)
+                              handleRoleChange(
+                                member.userId || member.id,
+                                value
+                              )
                             }
                           >
                             <SelectTrigger className="w-[120px]">
@@ -405,7 +471,9 @@ export default function CompanySettingsPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="EDITOR">Editor</SelectItem>
-                              <SelectItem value="COMMENTER">Commenter</SelectItem>
+                              <SelectItem value="COMMENTER">
+                                Commenter
+                              </SelectItem>
                               <SelectItem value="READER">Reader</SelectItem>
                             </SelectContent>
                           </Select>
@@ -413,7 +481,9 @@ export default function CompanySettingsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleRemoveMember(member.userId || member.id)}
+                              onClick={() =>
+                                handleRemoveMember(member.userId || member.id)
+                              }
                               className="text-destructive hover:text-destructive"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -586,6 +656,29 @@ export default function CompanySettingsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Role change confirmation dialog */}
+      <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Role Change</DialogTitle>
+            <DialogDescription>
+              You are changing your own role to {pendingRoleChange?.newRole}.
+              This may affect your permissions in this company. Are you sure you
+              want to continue?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsRoleDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={confirmRoleChange}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
