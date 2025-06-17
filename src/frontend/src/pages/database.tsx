@@ -110,6 +110,12 @@ export default function DatabasePage() {
   };
 
   const canEditTasks = project && (project.company?.ownerId === window.localStorage.getItem("userId") || currentUserRole === "EDITOR");
+  
+  // Add permission for task actions (view, comment)
+  const canAccessTaskActions = project && 
+    (project.company?.ownerId === window.localStorage.getItem("userId") ||
+     currentUserRole === "EDITOR" || 
+     currentUserRole === "COMMENTER");
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-full">Loading...</div>;
@@ -132,6 +138,7 @@ export default function DatabasePage() {
           onAddTask={canEditTasks ? handleAddTask : () => {}}
           onEditTask={canEditTasks ? handleEditTask : () => {}}
           onDeleteTask={canEditTasks ? handleDeleteTask : () => {}}
+          showTaskActions={!!canAccessTaskActions}
         />
       </div>
 

@@ -34,6 +34,7 @@ interface DatabaseViewProps {
   onAddTask: () => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
+  showTaskActions?: boolean; // Add this prop for authorization control
 }
 
 export const DatabaseView = forwardRef(function DatabaseView({
@@ -41,6 +42,7 @@ export const DatabaseView = forwardRef(function DatabaseView({
   onAddTask,
   onEditTask,
   onDeleteTask,
+  showTaskActions = true, // Default to true for backward compatibility
 }: DatabaseViewProps, ref) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -56,152 +58,163 @@ export const DatabaseView = forwardRef(function DatabaseView({
     }
   }));
 
-  const columns = [
-    columnHelper.accessor("title", {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Title
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: info => info.getValue(),
-    }),
-    columnHelper.accessor("status", {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Status
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: info => {
-        const status = info.getValue();
-        const getStatusColor = () => {
-          switch (status) {
-            case "TODO":
-              return "bg-blue-500 text-white";
-            case "IN_PROGRESS":
-              return "bg-orange-500 text-white";
-            case "REVIEW":
-              return "bg-purple-500 text-white";
-            case "DONE":
-              return "bg-green-500 text-white";
-            default:
-              return "bg-gray-500 text-white";
-          }
-        };
-        return (
-          <span className={`px-2 py-1 rounded text-xs ${getStatusColor()}`}>
-            {status}
-          </span>
-        );
-      },
-    }),
-    columnHelper.accessor("priority", {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Priority
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: info => {
-        const priority = info.getValue();
-        const getPriorityColor = () => {
-          switch (priority) {
-            case "LOW":
-              return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-            case "MEDIUM":
-              return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-            case "HIGH":
-              return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400";
-            case "URGENT":
-              return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-            default:
-              return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
-          }
-        };
-        return (
-          <span className={`px-2 py-1 rounded text-xs ${getPriorityColor()}`}>
-            {priority}
-          </span>
-        );
-      },
-    }),
-    columnHelper.accessor("dueDate", {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Due Date
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: info => {
-        const date = info.getValue();
-        return date ? format(new Date(date), "MMM d, yyyy") : "-";
-      },
-    }),
-    columnHelper.accessor("description", {
-      header: "Description",
-      cell: info => {
-        const description = info.getValue();
-        return description ? (
-          <div className="max-w-md line-clamp-2 overflow-hidden text-ellipsis">
-            {description}
-          </div>
-        ) : "-";
-      },
-    }),
-    columnHelper.accessor("tags", {
-      header: "Tags",
-      cell: info => {
-        const tags = info.getValue();
-        return (
-          <div className="flex flex-wrap gap-1">
-            {tags && tags.length > 0 ? (
-              tags.map(tag => (
-                <TagBadge key={tag.id} tag={tag} />
-              ))
-            ) : (
-              "-"
-            )}
-          </div>
-        );
-      },
-    }),
-    columnHelper.display({
-      id: "actions",
-      header: "",
-      cell: ({ row }) => (
-        <div className="flex gap-2 justify-end">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => handleEditTask(row.original)}
+  // Define columns dynamically based on showTaskActions
+  const getColumns = (): import("@tanstack/react-table").ColumnDef<Task, any>[] => {
+    const baseColumns: import("@tanstack/react-table").ColumnDef<Task, any>[] = [
+      columnHelper.accessor("title", {
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            <Edit className="h-4 w-4" />
+            Title
+            <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => handleDeleteTask(row.original.id)}
-            className="text-destructive hover:text-destructive"
+        ),
+        cell: info => info.getValue(),
+      }),
+      columnHelper.accessor("status", {
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            <Trash2 className="h-4 w-4" />
+            Status
+            <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
-        </div>
-      ),
-    }),
-  ];
+        ),
+        cell: info => {
+          const status = info.getValue();
+          const getStatusColor = () => {
+            switch (status) {
+              case "TODO":
+                return "bg-blue-500 text-white";
+              case "IN_PROGRESS":
+                return "bg-orange-500 text-white";
+              case "REVIEW":
+                return "bg-purple-500 text-white";
+              case "DONE":
+                return "bg-green-500 text-white";
+              default:
+                return "bg-gray-500 text-white";
+            }
+          };
+          return (
+            <span className={`px-2 py-1 rounded text-xs ${getStatusColor()}`}>
+              {status}
+            </span>
+          );
+        },
+      }),
+      columnHelper.accessor("priority", {
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Priority
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: info => {
+          const priority = info.getValue();
+          const getPriorityColor = () => {
+            switch (priority) {
+              case "LOW":
+                return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+              case "MEDIUM":
+                return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+              case "HIGH":
+                return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400";
+              case "URGENT":
+                return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+              default:
+                return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
+            }
+          };
+          return (
+            <span className={`px-2 py-1 rounded text-xs ${getPriorityColor()}`}>
+              {priority}
+            </span>
+          );
+        },
+      }),
+      columnHelper.accessor("dueDate", {
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Due Date
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: info => {
+          const date = info.getValue();
+          return date ? format(new Date(date), "MMM d, yyyy") : "-";
+        },
+      }),
+      columnHelper.accessor("description", {
+        header: "Description",
+        cell: info => {
+          const description = info.getValue();
+          return description ? (
+            <div className="max-w-md line-clamp-2 overflow-hidden text-ellipsis">
+              {description}
+            </div>
+          ) : "-";
+        },
+      }),
+      columnHelper.accessor("tags", {
+        header: "Tags",
+        cell: info => {
+          const tags = info.getValue();
+          return (
+            <div className="flex flex-wrap gap-1">
+              {tags && tags.length > 0 ? (
+                tags.map((tag: Tag) => (
+                  <TagBadge key={tag.id} tag={tag} />
+                ))
+              ) : (
+                "-"
+              )}
+            </div>
+          );
+        },
+      }),
+    ];
+
+    // Only add actions column if showTaskActions is true
+    if (showTaskActions) {
+      baseColumns.push(
+        columnHelper.display({
+          id: "actions",
+          header: "",
+          cell: ({ row }) => (
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => handleEditTask(row.original)}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => handleDeleteTask(row.original.id)}
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ),
+        })
+      );
+    }
+
+    return baseColumns;
+  };
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -234,7 +247,7 @@ export const DatabaseView = forwardRef(function DatabaseView({
 
   const table = useReactTable({
     data: tasks,
-    columns,
+    columns: getColumns(),
     state: {
       sorting,
     },
@@ -251,10 +264,12 @@ export const DatabaseView = forwardRef(function DatabaseView({
     <div className="w-full h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Tasks</h2>
-        <Button onClick={onAddTask}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Task
-        </Button>
+        {showTaskActions && (
+          <Button onClick={onAddTask}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Task
+          </Button>
+        )}
       </div>
       
       <div className="rounded-md border flex-1 flex flex-col">
@@ -289,8 +304,8 @@ export const DatabaseView = forwardRef(function DatabaseView({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columns.length} className="h-24 text-center">
-                    No tasks found. Click "Add Task" to create one.
+                  <td colSpan={getColumns().length} className="h-24 text-center">
+                    No tasks found. {showTaskActions ? 'Click "Add Task" to create one.' : ''}
                   </td>
                 </tr>
               )}
