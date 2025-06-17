@@ -104,6 +104,20 @@ export const projectsAPI = {
 };
 
 // Tasks API
+export interface TaskComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    imageUrl?: string;
+  };
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -120,6 +134,10 @@ export interface Task {
   parent?: Task | null;
   parentId?: string | null;
   subtasks?: Task[];
+  comments?: TaskComment[];
+  _count?: {
+    comments?: number;
+  };
 }
 
 export interface Tag {
@@ -180,6 +198,16 @@ export const projectDetailsAPI = {
     data: { title?: string; url?: string; description?: string }
   ) => api.put(`/project-details/${id}`, data),
   delete: (id: string) => api.delete(`/project-details/${id}`),
+};
+
+// Task Comments API
+export const commentsAPI = {
+  getAll: (taskId: string) => api.get<TaskComment[]>(`/tasks/${taskId}/comments`),
+  create: (taskId: string, content: string) => 
+    api.post<TaskComment>(`/tasks/${taskId}/comments`, { content }),
+  update: (id: string, content: string) => 
+    api.put<TaskComment>(`/comments/${id}`, { content }),
+  delete: (id: string) => api.delete(`/comments/${id}`),
 };
 
 export default api;

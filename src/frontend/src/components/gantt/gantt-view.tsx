@@ -53,6 +53,7 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import LeaderLine from "leader-line-new";
+import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
 
 interface Tag {
   id: string;
@@ -114,6 +115,7 @@ export const GanttView = forwardRef(function GanttView(
     to: viewRange.end,
   });
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const taskElementsRef = useRef<Map<string, HTMLElement>>(new Map());
   const taskBarElementsRef = useRef<Map<string, HTMLElement>>(new Map());
   const leaderLinesRef = useRef<LeaderLine[]>([]);
@@ -693,6 +695,19 @@ export const GanttView = forwardRef(function GanttView(
     };
   }, [tasks, expandedTasks, viewRange]);
 
+  // Update the task bar click handler to always open the detail modal
+  const handleTaskBarClick = (task: Task, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Check if we're clicking on the dropdown trigger
+    if ((e.target as HTMLElement).closest('.dropdown-trigger')) {
+      return; // Let the dropdown handle its own click
+    }
+    
+    // Always set the selected task to open the detail modal
+    setSelectedTask(task);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full">Loading...</div>
@@ -1077,8 +1092,7 @@ export const GanttView = forwardRef(function GanttView(
 
               <div style={{ width: `${days.length * calculatedDayWidth}px` }}>
                 {getVisibleTasks().map((task) => {
-                  const { visible, left, width, colorClass, actual } =
-                    getTaskBar(task);
+                  const { visible, left, width, colorClass, actual } = getTaskBar(task);
 
                   return (
                     <div
@@ -1088,11 +1102,12 @@ export const GanttView = forwardRef(function GanttView(
                       {visible && (
                         <>
                           <div
-                            className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs ${canEdit ? "cursor-pointer" : "cursor-default"}`}
+                            className={`absolute h-8 top-4 rounded ${colorClass} opacity-30 shadow-sm flex items-center px-2 text-white text-xs cursor-pointer ${
+                              canEdit ? "hover:opacity-40" : ""
+                            }`}
                             style={{ left, width, zIndex: 15 }}
-                            onClick={canEdit ? () => onEditTask(task) : undefined}
+                            onClick={(e) => handleTaskBarClick(task, e)}
                             ref={(el) => {
-                              // Store reference to the task bar element
                               if (el) {
                                 taskBarElementsRef.current.set(task.id, el);
                               } else {
@@ -1126,7 +1141,7 @@ export const GanttView = forwardRef(function GanttView(
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div
-                                    className={`absolute h-6 top-5 rounded shadow-sm flex items-center px-2 text-white text-xs ${canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"} ${
+                                    className={`absolute h-6 top-5 rounded shadow-sm flex items-center px-2 text-white text-xs cursor-pointer hover:brightness-105 ${
                                       actual.startDelay > 0
                                         ? "bg-red-500"
                                         : actual.startDelay < 0
@@ -1137,16 +1152,16 @@ export const GanttView = forwardRef(function GanttView(
                                       left: actual.left,
                                       width: actual.width,
                                       zIndex: 30,
-                                      pointerEvents: canEdit ? "auto" : "none",
                                     }}
-                                    onClick={
-                                      canEdit
-                                        ? (e) => {
-                                            e.stopPropagation();
-                                            onEditTask(task);
-                                          }
-                                        : undefined
-                                    }
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Check if we're clicking on the dropdown trigger
+                                      if ((e.target as HTMLElement).closest('.dropdown-trigger')) {
+                                        return; // Let the dropdown handle its own click
+                                      }
+                                      // Always open the task detail modal
+                                      setSelectedTask(task);
+                                    }}
                                     aria-haspopup="true"
                                     data-state="closed"
                                     tabIndex={0}
@@ -1325,17 +1340,21 @@ export const GanttView = forwardRef(function GanttView(
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 absolute top-5 text-white hover:bg-white/20 z-10"
+                                  className="h-6 w-6 absolute top-5 text-white hover:bg-white/20 z-10 dropdown-trigger"
                                   style={{
                                     left: `calc(${left} + ${width} - 28px)`,
                                   }}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <MoreHorizontal className="h-3 w-3" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                  onClick={() => onEditTask(task)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditTask(task);
+                                  }}
                                 >
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit
@@ -1367,6 +1386,18 @@ export const GanttView = forwardRef(function GanttView(
             </div>
           </div>
         </div>
+      )}
+
+      {selectedTask && (
+        <TaskDetailModal
+          open={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+          initialTask={selectedTask}
+          onEdit={onEditTask}
+          onDelete={onDeleteTask}
+          canEdit={canEdit}
+          canComment={canEdit}
+        />
       )}
     </div>
   );

@@ -13,6 +13,7 @@ import { tagRouter } from './routes/tag.routes';
 import { projectDetailRouter } from './routes/project-detail.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { userRouter } from './routes/user.routes';
+import commentRoutes from './routes/comment.routes';
 
 // Load environment variables
 dotenv.config();
@@ -36,6 +37,7 @@ app.use('/api/tasks', taskRouter);
 app.use('/api/tags', tagRouter);
 app.use('/api/project-details', projectDetailRouter);
 app.use('/api/users', userRouter);
+app.use('/api', commentRoutes); // Add this line
 
 // Error handler
 app.use(errorHandler);

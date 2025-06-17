@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { tasksAPI } from "@/lib/api";
 import { TagBadge } from "@/components/tags/tag-badge";
+import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
 
 interface Tag {
   id: string;
@@ -64,6 +65,7 @@ export function CalendarView({
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -263,7 +265,8 @@ export function CalendarView({
                       key={task.id}
                       className={`text-xs p-1 mb-1 rounded border-l-2 bg-background relative group ${getStatusColor(
                         task.status
-                      )}`}
+                      )} cursor-pointer`}
+                      onClick={() => setSelectedTask(task)}
                     >
                       <div className="flex justify-between items-start">
                         <div
@@ -334,6 +337,18 @@ export function CalendarView({
           })}
         </div>
       </div>
+
+      {selectedTask && (
+        <TaskDetailModal
+          open={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+          initialTask={selectedTask}
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          canEdit={showTaskActions}
+          canComment={showTaskActions}
+        />
+      )}
     </div>
   );
 }

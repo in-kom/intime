@@ -44,7 +44,10 @@ export const getTasks = async (req: Request, res: Response) => {
       dependencies: true,
       dependencyFor: true,
       parent: true,
-      subtasks: true
+      subtasks: true,
+      _count: {
+        select: { comments: true }
+      }
     }
   });
 
@@ -67,7 +70,20 @@ export const getTask = async (req: Request, res: Response) => {
       dependencies: true,
       dependencyFor: true,
       parent: true,
-      subtasks: true
+      subtasks: true,
+      comments: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              imageUrl: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      }
     }
   });
 

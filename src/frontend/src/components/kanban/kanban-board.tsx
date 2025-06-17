@@ -51,7 +51,7 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
   onAddTask, 
   onEditTask, 
   onDeleteTask,
-  showTaskActions = true // Default is true, but will be overridden by the value from KanbanPage
+  showTaskActions = true 
 }: KanbanBoardProps, ref) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -200,7 +200,7 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
             onAddTask={handleAddTask}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
-            showTaskActions={showTaskActions} // Make sure this is explicitly passed
+            showTaskActions={showTaskActions}
           />
           <KanbanColumn
             id="IN_PROGRESS"
@@ -238,7 +238,7 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
                 task={activeTask} 
                 onEdit={handleEditTask}
                 onDelete={handleDeleteTask}
-                showActions={showTaskActions} // Make sure this is explicitly passed
+                showActions={showTaskActions}
               />
             </div>
           ) : null}

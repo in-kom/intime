@@ -12,6 +12,7 @@ import { ArrowUpDown, Edit, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { tasksAPI } from "@/lib/api";
 import { TagBadge } from "@/components/tags/tag-badge";
+import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
 
 interface Tag {
   id: string;
@@ -42,12 +43,13 @@ export const DatabaseView = forwardRef(function DatabaseView({
   onAddTask,
   onEditTask,
   onDeleteTask,
-  showTaskActions = true, // Default to true for backward compatibility
+  showTaskActions = true,
 }: DatabaseViewProps, ref) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const columnHelper = createColumnHelper<Task>();
 
@@ -57,6 +59,11 @@ export const DatabaseView = forwardRef(function DatabaseView({
       setRefreshKey(prev => prev + 1);
     }
   }));
+
+  // Add cell action for row click
+  const handleRowClick = (task: Task) => {
+    setSelectedTask(task);
+  };
 
   // Define columns dynamically based on showTaskActions
   const getColumns = (): import("@tanstack/react-table").ColumnDef<Task, any>[] => {
@@ -294,7 +301,11 @@ export const DatabaseView = forwardRef(function DatabaseView({
             <tbody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map(row => (
-                  <tr key={row.id} className="border-b hover:bg-muted/50 data-[state=selected]:bg-muted">
+                  <tr 
+                    key={row.id} 
+                    className="border-b hover:bg-muted/50 data-[state=selected]:bg-muted cursor-pointer"
+                    onClick={() => handleRowClick(row.original)}
+                  >
                     {row.getVisibleCells().map(cell => (
                       <td key={cell.id} className="p-4 align-middle">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -313,6 +324,18 @@ export const DatabaseView = forwardRef(function DatabaseView({
           </table>
         </div>
       </div>
+
+      {selectedTask && (
+        <TaskDetailModal
+          open={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+          initialTask={selectedTask}
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          canEdit={showTaskActions}
+          canComment={showTaskActions}
+        />
+      )}
     </div>
   );
 });
