@@ -15,12 +15,20 @@ interface ProjectDetail {
 
 export default function ProjectDetailsPage() {
   const { projectId = "" } = useParams<{ projectId: string }>();
-  const [project, setProject] = useState<{ name: string; description?: string } | null>(null);
+  const [project, setProject] = useState<{ 
+    name: string; 
+    description?: string;
+    company?: {
+      ownerId?: string;
+      members?: { userId: string; role: string }[];
+    };
+  } | null>(null);
   const [details, setDetails] = useState<ProjectDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentDetail, setCurrentDetail] = useState<ProjectDetail | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,6 +41,18 @@ export default function ProjectDetailsPage() {
         
         setProject(projectRes.data);
         setDetails(detailsRes.data);
+        
+        // Set current user role
+        const member = projectRes.data.company?.members?.find(
+          (m: any) => m.userId === window.localStorage.getItem("userId")
+        );
+        setCurrentUserRole(
+          member?.role ||
+            (projectRes.data.company?.ownerId ===
+            window.localStorage.getItem("userId")
+              ? "EDITOR"
+              : null)
+        );
       } catch (error) {
         console.error("Failed to fetch project data", error);
       } finally {
@@ -79,6 +99,12 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Check user permissions
+  const canEditProject =
+    project &&
+    (project.company?.ownerId === window.localStorage.getItem("userId") ||
+      currentUserRole === "EDITOR");
+
   if (isLoading) {
     return <div className="flex justify-center items-center h-full">Loading...</div>;
   }
@@ -100,16 +126,18 @@ export default function ProjectDetailsPage() {
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Project Links</h2>
-          <Button onClick={handleAddDetail}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Link
-          </Button>
+          {canEditProject && (
+            <Button onClick={handleAddDetail}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Link
+            </Button>
+          )}
         </div>
 
         {details.length === 0 ? (
           <div className="bg-card border border-border rounded-lg p-6 text-center">
             <p className="text-muted-foreground">
-              No links added yet. Add important links and resources for your project.
+              No links added yet. {canEditProject ? "Add important links and resources for your project." : ""}
             </p>
           </div>
         ) : (
@@ -118,23 +146,25 @@ export default function ProjectDetailsPage() {
               <div key={detail.id} className="bg-card border border-border rounded-lg p-4">
                 <div className="flex justify-between items-start">
                   <h3 className="font-medium">{detail.title}</h3>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditDetail(detail)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteDetail(detail.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {canEditProject && (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditDetail(detail)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteDetail(detail.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 {detail.description && (
                   <p className="text-sm text-muted-foreground mt-1 mb-3">

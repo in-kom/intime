@@ -4,36 +4,38 @@ import { AppError } from '../middleware/error.middleware';
 
 const prisma = new PrismaClient();
 
+// Helper to get user's role in a company
+async function getUserCompanyRole(userId: string, companyId: string) {
+  if (!userId || !companyId) return null;
+  const member = await prisma.companyMember.findUnique({
+    where: { userId_companyId: { userId, companyId } }
+  });
+  return member?.role || null;
+}
+
 // Get all tasks for a project
 export const getTasks = async (req: Request, res: Response) => {
   const { projectId } = req.params;
 
-  // Check if project exists and user has access
+  // Check if project exists and user has access (any role)
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    include: {
-      company: true
-    }
+    include: { company: true }
   });
 
-  if (!project) {
-    throw new AppError('Project not found', 404);
-  }
+  if (!project) throw new AppError('Project not found', 404);
 
-  // Check if user has access to project's company
   const company = await prisma.company.findFirst({
     where: {
       id: project.companyId,
       OR: [
         { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
+        { members: { some: { userId: req.user!.id } } }
       ]
     }
   });
 
-  if (!company) {
-    throw new AppError('Not authorized to access this project', 403);
-  }
+  if (!company) throw new AppError('Not authorized to access this project', 403);
 
   const tasks = await prisma.task.findMany({
     where: { projectId },
@@ -42,7 +44,10 @@ export const getTasks = async (req: Request, res: Response) => {
       dependencies: true,
       dependencyFor: true,
       parent: true,
-      subtasks: true
+      subtasks: true,
+      _count: {
+        select: { comments: true }
+      }
     }
   });
 
@@ -65,7 +70,20 @@ export const getTask = async (req: Request, res: Response) => {
       dependencies: true,
       dependencyFor: true,
       parent: true,
-      subtasks: true
+      subtasks: true,
+      comments: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              imageUrl: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      }
     }
   });
 
@@ -73,20 +91,18 @@ export const getTask = async (req: Request, res: Response) => {
     throw new AppError('Task not found', 404);
   }
 
-  // Check if user has access to task's project's company
+  // Check if user has access to task's project's company (any role)
   const company = await prisma.company.findFirst({
     where: {
       id: task.project.companyId,
       OR: [
         { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
+        { members: { some: { userId: req.user!.id } } }
       ]
     }
   });
 
-  if (!company) {
-    throw new AppError('Not authorized to access this task', 403);
-  }
+  if (!company) throw new AppError('Not authorized to access this task', 403);
 
   res.status(200).json(task);
 };
@@ -105,7 +121,7 @@ export const createTask = async (req: Request, res: Response) => {
     dependencyIds 
   } = req.body;
 
-  // Check if project exists and user has access
+  // Check if project exists and user has access to project's company and is EDITOR or owner
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
@@ -117,18 +133,11 @@ export const createTask = async (req: Request, res: Response) => {
     throw new AppError('Project not found', 404);
   }
 
-  // Check if user has access to project's company
-  const company = await prisma.company.findFirst({
-    where: {
-      id: project.companyId,
-      OR: [
-        { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
-      ]
-    }
-  });
+  const company = project.company;
+  const isOwner = company.ownerId === req.user!.id;
+  const role = await getUserCompanyRole(req.user!.id, company.id);
 
-  if (!company) {
+  if (!isOwner && role !== 'EDITOR') {
     throw new AppError('Not authorized to create tasks in this project', 403);
   }
 
@@ -193,34 +202,21 @@ export const updateTask = async (req: Request, res: Response) => {
     dependencyIds 
   } = req.body;
 
-  // Check if task exists and user has access
+  // Only EDITORs or owner can update
   const task = await prisma.task.findUnique({
     where: { id },
     include: {
-      project: {
-        include: {
-          company: true
-        }
-      }
+      project: { include: { company: true } }
     }
   });
 
-  if (!task) {
-    throw new AppError('Task not found', 404);
-  }
+  if (!task) throw new AppError('Task not found', 404);
 
-  // Check if user has access to task's project's company
-  const company = await prisma.company.findFirst({
-    where: {
-      id: task.project.companyId,
-      OR: [
-        { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
-      ]
-    }
-  });
+  const company = task.project.company;
+  const isOwner = company.ownerId === req.user!.id;
+  const role = await getUserCompanyRole(req.user!.id, company.id);
 
-  if (!company) {
+  if (!isOwner && role !== 'EDITOR') {
     throw new AppError('Not authorized to update this task', 403);
   }
 
@@ -294,34 +290,21 @@ export const updateTask = async (req: Request, res: Response) => {
 export const deleteTask = async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  // Check if task exists and user has access
+  // Only EDITORs or owner can delete
   const task = await prisma.task.findUnique({
     where: { id },
     include: {
-      project: {
-        include: {
-          company: true
-        }
-      }
+      project: { include: { company: true } }
     }
   });
 
-  if (!task) {
-    throw new AppError('Task not found', 404);
-  }
+  if (!task) throw new AppError('Task not found', 404);
 
-  // Check if user has access to task's project's company
-  const company = await prisma.company.findFirst({
-    where: {
-      id: task.project.companyId,
-      OR: [
-        { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
-      ]
-    }
-  });
+  const company = task.project.company;
+  const isOwner = company.ownerId === req.user!.id;
+  const role = await getUserCompanyRole(req.user!.id, company.id);
 
-  if (!company) {
+  if (!isOwner && role !== 'EDITOR') {
     throw new AppError('Not authorized to delete this task', 403);
   }
 

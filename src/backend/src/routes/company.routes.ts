@@ -12,7 +12,8 @@ import {
   removeMember,
   uploadImage,
   updateImage,
-  deleteImage
+  deleteImage,
+  updateMemberRole
 } from '../controllers/company.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -66,6 +67,7 @@ router.route('/:id')
 
 router.post('/:id/members', addMember);
 router.delete('/:id/members/:userId', removeMember);
+router.patch('/:id/members/:userId/role', updateMemberRole); // Add this route
 
 // Image routes
 router.post('/:id/image', upload.single('image'), uploadImage);

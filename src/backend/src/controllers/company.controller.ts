@@ -1,8 +1,17 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, CompanyRole } from '@prisma/client';
 import { AppError } from '../middleware/error.middleware';
 
 const prisma = new PrismaClient();
+
+// Helper to get user's role in a company
+async function getUserCompanyRole(userId: string, companyId: string) {
+  if (!userId || !companyId) return null;
+  const member = await prisma.companyMember.findUnique({
+    where: { userId_companyId: { userId, companyId } }
+  });
+  return member?.role || null;
+}
 
 // Get all companies for current user
 export const getCompanies = async (req: Request, res: Response) => {
@@ -10,12 +19,13 @@ export const getCompanies = async (req: Request, res: Response) => {
     where: {
       OR: [
         { ownerId: req.user!.id },
-        { members: { some: { id: req.user!.id } } }
+        { members: { some: { userId: req.user!.id } } }
       ]
     },
     include: {
-      _count: {
-        select: { projects: true }
+      _count: { select: { projects: true } },
+      members: {
+        include: { user: { select: { id: true, name: true, email: true } } }
       }
     }
   });
@@ -30,27 +40,21 @@ export const getCompany = async (req: Request, res: Response) => {
   const company = await prisma.company.findUnique({
     where: { id },
     include: {
-      owner: {
-        select: { id: true, name: true, email: true }
-      },
+      owner: { select: { id: true, name: true, email: true } },
       members: {
-        select: { id: true, name: true, email: true }
+        include: { user: { select: { id: true, name: true, email: true } } }
       },
       projects: true
     }
   });
 
-  if (!company) {
-    throw new AppError('Company not found', 404);
-  }
+  if (!company) throw new AppError('Company not found', 404);
 
   // Check if user is owner or member
   const isOwner = company.ownerId === req.user!.id;
-  const isMember = company.members.some(member => member.id === req.user!.id);
+  const isMember = company.members.some(member => member.userId === req.user!.id);
 
-  if (!isOwner && !isMember) {
-    throw new AppError('Not authorized to access this company', 403);
-  }
+  if (!isOwner && !isMember) throw new AppError('Not authorized to access this company', 403);
 
   res.status(200).json(company);
 };
@@ -63,12 +67,16 @@ export const createCompany = async (req: Request, res: Response) => {
     data: {
       name,
       description,
-      owner: {
-        connect: { id: req.user!.id }
-      },
+      owner: { connect: { id: req.user!.id } },
       members: {
-        connect: { id: req.user!.id }
+        create: {
+          userId: req.user!.id,
+          role: CompanyRole.EDITOR
+        }
       }
+    },
+    include: {
+      members: true
     }
   });
 
@@ -80,25 +88,18 @@ export const updateCompany = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name, description } = req.body;
 
-  // Check if company exists and user is owner
-  const company = await prisma.company.findUnique({
-    where: { id }
-  });
+  // Only EDITORs or owner can update
+  const company = await prisma.company.findUnique({ where: { id } });
+  if (!company) throw new AppError('Company not found', 404);
 
-  if (!company) {
-    throw new AppError('Company not found', 404);
-  }
+  const isOwner = company.ownerId === req.user!.id;
+  const role = await getUserCompanyRole(req.user!.id, id);
 
-  if (company.ownerId !== req.user!.id) {
-    throw new AppError('Not authorized to update this company', 403);
-  }
+  if (!isOwner && role !== 'EDITOR') throw new AppError('Not authorized to update this company', 403);
 
   const updatedCompany = await prisma.company.update({
     where: { id },
-    data: {
-      name,
-      description
-    }
+    data: { name, description }
   });
 
   res.status(200).json(updatedCompany);
@@ -108,65 +109,46 @@ export const updateCompany = async (req: Request, res: Response) => {
 export const deleteCompany = async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  // Check if company exists and user is owner
-  const company = await prisma.company.findUnique({
-    where: { id }
-  });
+  // Only owner can delete
+  const company = await prisma.company.findUnique({ where: { id } });
+  if (!company) throw new AppError('Company not found', 404);
 
-  if (!company) {
-    throw new AppError('Company not found', 404);
-  }
+  if (company.ownerId !== req.user!.id) throw new AppError('Not authorized to delete this company', 403);
 
-  if (company.ownerId !== req.user!.id) {
-    throw new AppError('Not authorized to delete this company', 403);
-  }
-
-  await prisma.company.delete({
-    where: { id }
-  });
+  await prisma.company.delete({ where: { id } });
 
   res.status(204).send();
 };
 
-// Add member to company
+// Add member to company (default role: READER, can be set in body)
 export const addMember = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { email } = req.body;
+  const { email, role = CompanyRole.READER } = req.body;
 
-  // Check if company exists and user is owner
-  const company = await prisma.company.findUnique({
-    where: { id }
-  });
+  // Only EDITORs or owner can add members
+  const company = await prisma.company.findUnique({ where: { id } });
+  if (!company) throw new AppError('Company not found', 404);
 
-  if (!company) {
-    throw new AppError('Company not found', 404);
-  }
+  const isOwner = company.ownerId === req.user!.id;
+  const userRole = await getUserCompanyRole(req.user!.id, id);
 
-  if (company.ownerId !== req.user!.id) {
-    throw new AppError('Not authorized to add members to this company', 403);
-  }
+  if (!isOwner && userRole !== 'EDITOR') throw new AppError('Not authorized to add members', 403);
 
   // Find user by email
-  const user = await prisma.user.findUnique({
-    where: { email }
-  });
-
-  if (!user) {
-    throw new AppError('User not found', 404);
-  }
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) throw new AppError('User not found', 404);
 
   // Add user to company members
-  const updatedCompany = await prisma.company.update({
+  await prisma.companyMember.upsert({
+    where: { userId_companyId: { userId: user.id, companyId: id } },
+    update: { role },
+    create: { userId: user.id, companyId: id, role }
+  });
+
+  const updatedCompany = await prisma.company.findUnique({
     where: { id },
-    data: {
-      members: {
-        connect: { id: user.id }
-      }
-    },
     include: {
-      members: {
-        select: { id: true, name: true, email: true }
-      }
+      members: { include: { user: { select: { id: true, name: true, email: true } } } }
     }
   });
 
@@ -177,36 +159,26 @@ export const addMember = async (req: Request, res: Response) => {
 export const removeMember = async (req: Request, res: Response) => {
   const { id, userId } = req.params;
 
-  // Check if company exists and user is owner
-  const company = await prisma.company.findUnique({
-    where: { id }
-  });
+  // Only EDITORs or owner can remove members
+  const company = await prisma.company.findUnique({ where: { id } });
+  if (!company) throw new AppError('Company not found', 404);
 
-  if (!company) {
-    throw new AppError('Company not found', 404);
-  }
+  const isOwner = company.ownerId === req.user!.id;
+  const userRole = await getUserCompanyRole(req.user!.id, id);
 
-  if (company.ownerId !== req.user!.id) {
-    throw new AppError('Not authorized to remove members from this company', 403);
-  }
+  if (!isOwner && userRole !== 'EDITOR') throw new AppError('Not authorized to remove members', 403);
 
   // Cannot remove the owner
-  if (userId === company.ownerId) {
-    throw new AppError('Cannot remove the company owner', 400);
-  }
+  if (userId === company.ownerId) throw new AppError('Cannot remove the company owner', 400);
 
-  // Remove user from company members
-  const updatedCompany = await prisma.company.update({
+  await prisma.companyMember.delete({
+    where: { userId_companyId: { userId, companyId: id } }
+  });
+
+  const updatedCompany = await prisma.company.findUnique({
     where: { id },
-    data: {
-      members: {
-        disconnect: { id: userId }
-      }
-    },
     include: {
-      members: {
-        select: { id: true, name: true, email: true }
-      }
+      members: { include: { user: { select: { id: true, name: true, email: true } } } }
     }
   });
 
@@ -322,4 +294,29 @@ export const deleteImage = async (req: Request, res: Response) => {
   });
   
   res.status(204).send();
+};
+
+// Update member role
+export const updateMemberRole = async (req: Request, res: Response) => {
+  const { id, userId } = req.params;
+  const { role } = req.body;
+
+  // Only owner or EDITOR can change roles
+  const company = await prisma.company.findUnique({ where: { id } });
+  if (!company) throw new AppError('Company not found', 404);
+
+  const isOwner = company.ownerId === req.user!.id;
+  const userRole = await getUserCompanyRole(req.user!.id, id);
+
+  if (!isOwner && userRole !== 'EDITOR') throw new AppError('Not authorized to update member roles', 403);
+
+  // Cannot change role of owner
+  if (userId === company.ownerId) throw new AppError('Cannot change role of the company owner', 400);
+
+  const updatedMember = await prisma.companyMember.update({
+    where: { userId_companyId: { userId, companyId: id } },
+    data: { role }
+  });
+
+  res.status(200).json(updatedMember);
 };
