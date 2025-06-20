@@ -23,11 +23,19 @@ interface TaskFormData {
 
 export default function KanbanPage() {
   const { projectId = "" } = useParams<{ projectId: string }>();
-  const [project, setProject] = useState<{ name: string; description?: string } | null>(null);
+  const [project, setProject] = useState<{
+    name: string;
+    description?: string;
+    company?: {
+      ownerId?: string;
+      members?: { userId: string; role: string }[];
+    };
+  } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const kanbanBoardRef = useRef<{ refreshTasks: () => void } | null>(null);
 
   useEffect(() => {
@@ -35,6 +43,18 @@ export default function KanbanPage() {
       try {
         const response = await projectsAPI.getById(projectId);
         setProject(response.data);
+
+        // Set current user role
+        const member = response.data.company?.members?.find(
+          (m: any) => m.userId === window.localStorage.getItem("userId")
+        );
+        setCurrentUserRole(
+          member?.role ||
+            (response.data.company?.ownerId ===
+            window.localStorage.getItem("userId")
+              ? "EDITOR"
+              : null)
+        );
       } catch (error) {
         console.error("Failed to fetch project", error);
       } finally {
@@ -65,7 +85,7 @@ export default function KanbanPage() {
       if (kanbanBoardRef.current) {
         kanbanBoardRef.current.refreshTasks();
       } else {
-        setRefreshKey(prev => prev + 1);
+        setRefreshKey((prev) => prev + 1);
       }
     } catch (error) {
       console.error("Failed to delete task", error);
@@ -80,20 +100,33 @@ export default function KanbanPage() {
         await tasksAPI.create(projectId, data);
       }
       setIsFormOpen(false);
-      
+
       // Refresh the board after create/update
       if (kanbanBoardRef.current) {
         kanbanBoardRef.current.refreshTasks();
       } else {
-        setRefreshKey(prev => prev + 1);
+        setRefreshKey((prev) => prev + 1);
       }
     } catch (error) {
       console.error("Failed to save task", error);
     }
   };
 
+  const canEditTasks =
+    project &&
+    (project.company?.ownerId === window.localStorage.getItem("userId") ||
+      currentUserRole === "EDITOR");
+
+  const canAccessTaskActions =
+    project &&
+    (project.company?.ownerId === window.localStorage.getItem("userId") ||
+      currentUserRole === "EDITOR" ||
+      currentUserRole === "COMMENTER");
+
   if (isLoading) {
-    return <div className="flex justify-center items-center h-full">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center h-full">Loading...</div>
+    );
   }
 
   return (
@@ -109,9 +142,10 @@ export default function KanbanPage() {
         <KanbanBoard
           key={refreshKey}
           projectId={projectId}
-          onAddTask={handleAddTask}
-          onEditTask={handleEditTask}
-          onDeleteTask={handleDeleteTask}
+          onAddTask={canEditTasks ? handleAddTask : () => {}}
+          onEditTask={canEditTasks ? handleEditTask : () => {}}
+          onDeleteTask={canEditTasks ? handleDeleteTask : () => {}}
+          showTaskActions={!!canAccessTaskActions}
           ref={kanbanBoardRef}
         />
       </div>

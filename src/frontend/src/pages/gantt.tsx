@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { projectsAPI, tasksAPI } from "@/lib/api";
 import { GanttView } from "@/components/gantt/gantt-view";
 import { TaskForm } from "@/components/tasks/task-form";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Tag {
   id: string;
@@ -41,12 +42,22 @@ export default function GanttPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [availableTasks, setAvailableTasks] = useState<{ id: string; title: string }[]>([]);
   const ganttViewRef = useRef<{ refreshTasks: () => void } | null>(null);
+  const { user } = useAuth();
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [projectCompany, setProjectCompany] = useState<any>(null);
 
   useEffect(() => {
     const fetchProject = async () => {
       try {
         const response = await projectsAPI.getById(projectId);
         setProject(response.data);
+        setProjectCompany(response.data.company);
+        // Find current user's role
+        const member = response.data.company?.members?.find((m: any) => m.userId === user?.id);
+        setCurrentUserRole(
+          member?.role ||
+          (response.data.company?.ownerId === user?.id ? "EDITOR" : null)
+        );
       } catch (error) {
         console.error("Failed to fetch project", error);
       } finally {
@@ -65,7 +76,7 @@ export default function GanttPage() {
 
     fetchProject();
     fetchTasks();
-  }, [projectId, refreshKey]);
+  }, [projectId, refreshKey, user?.id]);
 
   const handleAddTask = (parentId?: string) => {
     setCurrentTask({
@@ -118,6 +129,11 @@ export default function GanttPage() {
     }
   };
 
+  // Only owner or EDITOR can add/edit/delete/move tasks
+  const canEditTasks =
+    projectCompany &&
+    (projectCompany.ownerId === user?.id || currentUserRole === "EDITOR");
+
   if (isLoading) {
     return <div className="flex justify-center items-center h-full">Loading...</div>;
   }
@@ -135,13 +151,13 @@ export default function GanttPage() {
         <GanttView
           key={refreshKey}
           projectId={projectId}
-          onAddTask={handleAddTask}
-          onEditTask={handleEditTask}
-          onDeleteTask={handleDeleteTask}
+          onAddTask={canEditTasks ? handleAddTask : () => {}}
+          onEditTask={canEditTasks ? handleEditTask : () => {}}
+          onDeleteTask={canEditTasks ? handleDeleteTask : () => {}}
           ref={ganttViewRef}
+          canEdit={canEditTasks}
         />
       </div>
-
       <TaskForm
         task={currentTask}
         open={isFormOpen}

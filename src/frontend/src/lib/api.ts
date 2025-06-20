@@ -68,6 +68,8 @@ export const companiesAPI = {
     api.post(`/companies/${id}/members`, { email }),
   removeMember: (id: string, userId: string) =>
     api.delete(`/companies/${id}/members/${userId}`),
+  updateMemberRole: (companyId: string, userId: string, role: string) =>
+    api.patch(`/companies/${companyId}/members/${userId}/role`, { role }),
   // New image-related methods
   uploadImage: (id: string, imageFile: File) => {
     const formData = new FormData();
@@ -102,6 +104,22 @@ export const projectsAPI = {
 };
 
 // Tasks API
+export interface TaskComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    imageUrl?: string;
+  };
+  reactions?: Reaction[];
+  mentions?: UserMention[];
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -118,6 +136,10 @@ export interface Task {
   parent?: Task | null;
   parentId?: string | null;
   subtasks?: Task[];
+  comments?: TaskComment[];
+  _count?: {
+    comments?: number;
+  };
 }
 
 export interface Tag {
@@ -136,6 +158,30 @@ export interface TaskCreateUpdatePayload {
   startDate?: string;
   dependencyIds?: string[];
   parentId?: string | null;
+}
+
+export interface Reaction {
+  id: string;
+  emoji: string;
+  createdAt: string;
+  userId: string;
+  commentId: string;
+  user?: {
+    id: string;
+    name: string;
+    imageUrl?: string;
+  };
+}
+
+export interface UserMention {
+  id: string;
+  userId: string;
+  commentId: string;
+  user?: {
+    id: string;
+    name: string;
+    imageUrl?: string;
+  };
 }
 
 export const tasksAPI = {
@@ -178,6 +224,29 @@ export const projectDetailsAPI = {
     data: { title?: string; url?: string; description?: string }
   ) => api.put(`/project-details/${id}`, data),
   delete: (id: string) => api.delete(`/project-details/${id}`),
+};
+
+// Task Comments API
+export const commentsAPI = {
+  getAll: (taskId: string) => api.get<TaskComment[]>(`/tasks/${taskId}/comments`),
+  create: (taskId: string, content: string) => 
+    api.post<TaskComment>(`/tasks/${taskId}/comments`, { content }),
+  update: (id: string, content: string) => 
+    api.put<TaskComment>(`/comments/${id}`, { content }),
+  delete: (id: string) => api.delete(`/comments/${id}`),
+  // Reactions - Fix the endpoint paths
+  getReactions: (commentId: string) => 
+    api.get<Reaction[]>(`/comments/${commentId}/reactions`),
+  
+  addReaction: (commentId: string, emoji: string) => 
+    api.post<Reaction>(`/comments/${commentId}/reactions`, { emoji }),
+  
+  removeReaction: (commentId: string, emoji: string) => 
+    api.delete(`/comments/${commentId}/reactions/${encodeURIComponent(emoji)}`),
+  
+  // Users for mentions
+  getUsersForMentions: (companyId: string) => 
+    api.get<{id: string, name: string, imageUrl?: string}[]>(`/companies/${companyId}/users`)
 };
 
 export default api;

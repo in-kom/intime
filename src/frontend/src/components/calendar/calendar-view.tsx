@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { tasksAPI } from "@/lib/api";
 import { TagBadge } from "@/components/tags/tag-badge";
+import { TaskDetailModal } from "@/components/tasks/task-detail-modal";
 
 interface Tag {
   id: string;
@@ -50,6 +51,7 @@ interface CalendarViewProps {
   onAddTask: (date: string) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
+  showTaskActions?: boolean; // Add this prop for authorization control
 }
 
 export function CalendarView({
@@ -57,11 +59,13 @@ export function CalendarView({
   onAddTask,
   onEditTask,
   onDeleteTask,
+  showTaskActions = true, // Default to true for backward compatibility
 }: CalendarViewProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -243,14 +247,16 @@ export function CalendarView({
                   >
                     {format(day, "d")}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => handleAddTask(day)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
+                  {showTaskActions && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleAddTask(day)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
 
                 <div className="mt-1 space-y-1 max-h-[100px] overflow-y-auto">
@@ -259,7 +265,8 @@ export function CalendarView({
                       key={task.id}
                       className={`text-xs p-1 mb-1 rounded border-l-2 bg-background relative group ${getStatusColor(
                         task.status
-                      )}`}
+                      )} cursor-pointer`}
+                      onClick={() => setSelectedTask(task)}
                     >
                       <div className="flex justify-between items-start">
                         <div
@@ -268,32 +275,34 @@ export function CalendarView({
                         >
                           {task.title}
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 absolute right-1 top-1 opacity-0 group-hover:opacity-100"
-                            >
-                              <MoreHorizontal className="h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleEditTask(task)}
-                            >
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {showTaskActions && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 absolute right-1 top-1 opacity-0 group-hover:opacity-100"
+                              >
+                                <MoreHorizontal className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => handleEditTask(task)}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 mt-1">
                         <span
@@ -328,6 +337,18 @@ export function CalendarView({
           })}
         </div>
       </div>
+
+      {selectedTask && (
+        <TaskDetailModal
+          open={!!selectedTask}
+          onClose={() => setSelectedTask(null)}
+          initialTask={selectedTask}
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          canEdit={showTaskActions}
+          canComment={showTaskActions}
+        />
+      )}
     </div>
   );
 }

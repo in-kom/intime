@@ -31,18 +31,38 @@ interface TaskFormData {
 
 export default function CalendarPage() {
   const { projectId = "" } = useParams<{ projectId: string }>();
-  const [project, setProject] = useState<{ name: string; description?: string } | null>(null);
+  const [project, setProject] = useState<{ 
+    name: string; 
+    description?: string;
+    company?: {
+      ownerId?: string;
+      members?: { userId: string; role: string }[];
+    };
+  } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [, setSelectedDate] = useState<string | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProject = async () => {
       try {
         const response = await projectsAPI.getById(projectId);
         setProject(response.data);
+        
+        // Set current user role
+        const member = response.data.company?.members?.find(
+          (m: any) => m.userId === window.localStorage.getItem("userId")
+        );
+        setCurrentUserRole(
+          member?.role ||
+            (response.data.company?.ownerId ===
+            window.localStorage.getItem("userId")
+              ? "EDITOR"
+              : null)
+        );
       } catch (error) {
         console.error("Failed to fetch project", error);
       } finally {
@@ -93,6 +113,17 @@ export default function CalendarPage() {
     }
   };
 
+  const canEditTasks =
+    project &&
+    (project.company?.ownerId === window.localStorage.getItem("userId") ||
+      currentUserRole === "EDITOR");
+
+  const canAccessTaskActions =
+    project &&
+    (project.company?.ownerId === window.localStorage.getItem("userId") ||
+      currentUserRole === "EDITOR" ||
+      currentUserRole === "COMMENTER");
+
   if (isLoading) {
     return <div className="flex justify-center items-center h-full">Loading...</div>;
   }
@@ -110,9 +141,10 @@ export default function CalendarPage() {
         <CalendarView
           key={refreshKey} // Force re-mount when tasks change
           projectId={projectId}
-          onAddTask={handleAddTask}
-          onEditTask={handleEditTask}
-          onDeleteTask={handleDeleteTask}
+          onAddTask={canEditTasks ? handleAddTask : () => {}}
+          onEditTask={canEditTasks ? handleEditTask : () => {}}
+          onDeleteTask={canEditTasks ? handleDeleteTask : () => {}}
+          showTaskActions={!!canAccessTaskActions}
         />
       </div>
 

@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import morgan from 'morgan';
 import path from 'path';
+import http from 'http';
+import { initWebSocketServer } from './services/websocket.service';
 
 import { authRouter } from './routes/auth.routes';
 import { companyRouter } from './routes/company.routes';
@@ -13,12 +15,19 @@ import { tagRouter } from './routes/tag.routes';
 import { projectDetailRouter } from './routes/project-detail.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { userRouter } from './routes/user.routes';
+import commentRoutes from './routes/comment.routes';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize WebSocket server
+initWebSocketServer(server);
 
 // Middleware
 app.use(express.json());
@@ -36,11 +45,14 @@ app.use('/api/tasks', taskRouter);
 app.use('/api/tags', tagRouter);
 app.use('/api/project-details', projectDetailRouter);
 app.use('/api/users', userRouter);
+app.use('/api', commentRoutes);
 
 // Error handler
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Start server using the HTTP server instead of app.listen
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT} with WebSocket support`);
 });
+
+export { app };

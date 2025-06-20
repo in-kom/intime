@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { API_URL, companiesAPI, projectsAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Plus, FolderKanban, Database, Calendar, GanttChart } from "lucide-react";
+import {
+  Plus,
+  FolderKanban,
+  Database,
+  Calendar,
+  GanttChart,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +27,7 @@ type Company = {
   name: string;
   description?: string;
   imageUrl?: string;
+  ownerId: string;
 };
 
 export default function DashboardPage() {
@@ -41,6 +48,8 @@ export default function DashboardPage() {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  // Add a state for current user role
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   // Initial data fetch - load companies and set first company as active
   useEffect(() => {
@@ -65,6 +74,22 @@ export default function DashboardPage() {
               setActiveCompanyId(companyId);
             }
           }
+        }
+
+        // Set current user role for active company
+        const active = companiesRes.data.find(
+          (c: any) => c.id === activeCompanyId
+        );
+        if (active) {
+          const member = active.members?.find(
+            (m: any) => m.userId === window.localStorage.getItem("userId")
+          );
+          setCurrentUserRole(
+            member?.role ||
+              (active.ownerId === window.localStorage.getItem("userId")
+                ? "EDITOR"
+                : null)
+          );
         }
       } catch (error) {
         console.error("Failed to fetch data", error);
@@ -144,6 +169,12 @@ export default function DashboardPage() {
     (company) => company.id === activeCompanyId
   );
 
+  // Only allow project creation for owner or EDITOR
+  const canCreateProject =
+    activeCompany &&
+    (activeCompany.ownerId === window.localStorage.getItem("userId") ||
+      currentUserRole === "EDITOR");
+
   if (isLoading || projectsLoading) {
     return (
       <div className="flex justify-center items-center h-full">Loading...</div>
@@ -169,7 +200,7 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-        {companies.length > 0 && (
+        {companies.length > 0 && canCreateProject && (
           <Button onClick={openProjectDialog}>
             <Plus className="mr-2 h-4 w-4" />
             New Project
