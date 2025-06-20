@@ -18,6 +18,8 @@ model User {
   companies      CompanyMember[]
   ownedCompanies Company[]      @relation("CompanyOwner")
   taskComments   TaskComment[]  // Add this line
+  reactions      Reaction[]
+  mentions       UserMention[]
 }
 
 model Company {
@@ -137,4 +139,33 @@ model TaskComment {
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  reactions  Reaction[]
+  mentions   UserMention[]
+}
+
+model Reaction {
+  id          String      @id @default(uuid())
+  emoji       String      // Store the emoji character or code
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  comment     TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId   String
+
+  @@unique([userId, commentId, emoji]) // One user can use each emoji once per comment
+}
+
+model UserMention {
+  id          String      @id @default(uuid())
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  comment     TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId   String
+
+  @@unique([userId, commentId]) // A user can only be mentioned once per comment
 }

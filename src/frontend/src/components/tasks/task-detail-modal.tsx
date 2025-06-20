@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { 
   Calendar as CalendarIcon, 
@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { TagBadge } from "@/components/tags/tag-badge";
 import { CommentList } from "@/components/comments/comment-list";
 import { tasksAPI } from "@/lib/api";
+import webSocketService from "@/services/websocket.service";
 
 interface Tag {
   id: string;
@@ -51,21 +52,55 @@ export function TaskDetailModal({
   const [task, setTask] = useState<any>(initialTask);
   const [isLoading, setIsLoading] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  // Use refs to track state without triggering re-renders
+  const hasLoadedRef = useRef<string | null>(null);
+  const activeTaskId = useRef<string | null>(null);
 
+  // Initial load of task data
   useEffect(() => {
+    // If modal is closed, reset our state
+    if (!open) {
+      hasLoadedRef.current = null;
+      if (activeTaskId.current) {
+        webSocketService.unsubscribe(activeTaskId.current);
+        activeTaskId.current = null;
+      }
+      return;
+    }
+
     // If initialTask is provided, use it
     if (initialTask) {
       setTask(initialTask);
+      hasLoadedRef.current = initialTask.id;
+      
+      // Subscribe to WebSocket updates for this task
+      if (initialTask.id && initialTask.id !== activeTaskId.current) {
+        if (activeTaskId.current) {
+          webSocketService.unsubscribe(activeTaskId.current);
+        }
+        activeTaskId.current = initialTask.id;
+        webSocketService.subscribe(initialTask.id);
+      }
       return;
     }
     
-    // Otherwise fetch task data if taskId is provided and modal is open
-    if (taskId && open) {
+    // Only fetch task if we have a taskId, the modal is open, and we haven't loaded this task yet
+    if (taskId && open && hasLoadedRef.current !== taskId) {
       const fetchTask = async () => {
         try {
           setIsLoading(true);
           const response = await tasksAPI.getById(taskId);
           setTask(response.data);
+          hasLoadedRef.current = taskId;
+          
+          // Subscribe to WebSocket updates for this task
+          if (taskId !== activeTaskId.current) {
+            if (activeTaskId.current) {
+              webSocketService.unsubscribe(activeTaskId.current);
+            }
+            activeTaskId.current = taskId;
+            webSocketService.subscribe(taskId);
+          }
         } catch (error) {
           console.error("Failed to fetch task details", error);
         } finally {
@@ -76,6 +111,28 @@ export function TaskDetailModal({
       fetchTask();
     }
   }, [taskId, open, initialTask]);
+
+  // Cleanup WebSocket subscription on unmount
+  useEffect(() => {
+    return () => {
+      if (activeTaskId.current) {
+        webSocketService.unsubscribe(activeTaskId.current);
+      }
+    };
+  }, []);
+
+  // Handle task updates via WebSocket
+  useEffect(() => {
+    const taskUpdatedListener = webSocketService.addListener('TASK_UPDATED', (updatedTask) => {
+      if (updatedTask.id === task?.id) {
+        setTask(updatedTask);
+      }
+    });
+
+    return () => {
+      taskUpdatedListener();
+    };
+  }, [task?.id]);
 
   const handleEdit = () => {
     if (onEdit && task) {
@@ -272,12 +329,15 @@ export function TaskDetailModal({
             )}
           </div>
 
-          {/* Comments */}
+          {/* Comments section - Ensure we're passing comments correctly */}
           <div className="pt-2 border-t">
-            <CommentList 
-              taskId={task.id} 
+            <CommentList
+              taskId={task.id}
+              projectId={task.projectId}
+              companyId={task.project?.companyId}
               canComment={canComment}
-              initialComments={task.comments}
+              initialComments={task.comments || []}
+              useWebSocket={true}
             />
           </div>
         </div>

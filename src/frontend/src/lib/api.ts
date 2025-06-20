@@ -116,6 +116,8 @@ export interface TaskComment {
     email: string;
     imageUrl?: string;
   };
+  reactions?: Reaction[];
+  mentions?: UserMention[];
 }
 
 export interface Task {
@@ -156,6 +158,30 @@ export interface TaskCreateUpdatePayload {
   startDate?: string;
   dependencyIds?: string[];
   parentId?: string | null;
+}
+
+export interface Reaction {
+  id: string;
+  emoji: string;
+  createdAt: string;
+  userId: string;
+  commentId: string;
+  user?: {
+    id: string;
+    name: string;
+    imageUrl?: string;
+  };
+}
+
+export interface UserMention {
+  id: string;
+  userId: string;
+  commentId: string;
+  user?: {
+    id: string;
+    name: string;
+    imageUrl?: string;
+  };
 }
 
 export const tasksAPI = {
@@ -208,6 +234,19 @@ export const commentsAPI = {
   update: (id: string, content: string) => 
     api.put<TaskComment>(`/comments/${id}`, { content }),
   delete: (id: string) => api.delete(`/comments/${id}`),
+  // Reactions - Fix the endpoint paths
+  getReactions: (commentId: string) => 
+    api.get<Reaction[]>(`/comments/${commentId}/reactions`),
+  
+  addReaction: (commentId: string, emoji: string) => 
+    api.post<Reaction>(`/comments/${commentId}/reactions`, { emoji }),
+  
+  removeReaction: (commentId: string, emoji: string) => 
+    api.delete(`/comments/${commentId}/reactions/${encodeURIComponent(emoji)}`),
+  
+  // Users for mentions
+  getUsersForMentions: (companyId: string) => 
+    api.get<{id: string, name: string, imageUrl?: string}[]>(`/companies/${companyId}/users`)
 };
 
 export default api;
