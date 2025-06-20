@@ -443,6 +443,8 @@ export function TaskForm({ task, open, onClose, onSubmit, availableTasks = [] }:
             <TabsContent value="comments">
               <CommentList 
                 taskId={task.id} 
+                projectId={projectId}
+                companyId={""} // TODO: Replace with actual companyId if available
                 canComment={true}
                 initialComments={task.comments}
               />
