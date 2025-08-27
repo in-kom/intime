@@ -21,7 +21,7 @@ interface Reaction {
 
 interface CommentReactionsProps {
   commentId: string;
-  taskId: string; // Make taskId required
+  taskId: string;
   initialReactions?: Reaction[];
   useWebSocket?: boolean;
 }
@@ -35,9 +35,10 @@ export function CommentReactions({
   useWebSocket = false
 }: CommentReactionsProps) {
   const [reactions, setReactions] = useState<Reaction[]>(initialReactions);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const currentUserId = localStorage.getItem("userId");
+  const currentUser = { id: currentUserId, name: localStorage.getItem("userName") || "You" };
   const reactionsLoadedRef = useRef<boolean>(initialReactions.length > 0);
   const isSubscribedRef = useRef<boolean>(false);
 
@@ -140,28 +141,43 @@ export function CommentReactions({
     );
 
     try {
-      console.log(`${existingReaction ? 'Removing' : 'Adding'} reaction ${emoji} for comment ${commentId}`);
-      
+      // Apply optimistic update first - don't wait for API or WebSocket
       if (existingReaction) {
-        // If user already reacted with this emoji, remove the reaction
-        await commentsAPI.removeReaction(commentId, emoji);
-        
-        // If not using WebSockets, update local state immediately
-        if (!useWebSocket) {
-          setReactions(reactions.filter(r => !(r.emoji === emoji && r.userId === currentUserId)));
-        }
+        // Removing reaction optimistically
+        setReactions(prev => prev.filter(r => !(r.emoji === emoji && r.userId === currentUserId)));
       } else {
-        // Otherwise add the reaction
-        const response = await commentsAPI.addReaction(commentId, emoji);
-        
-        // If not using WebSockets, update local state immediately
-        if (!useWebSocket) {
-          setReactions([...reactions, response.data]);
-        }
+        // Adding reaction optimistically
+        const tempId = `temp-${Date.now()}`;
+        const optimisticReaction: Reaction = {
+          id: tempId,
+          emoji: emoji,
+          userId: currentUserId || '',
+          commentId: commentId,
+          user: currentUser as any
+        };
+        setReactions(prev => [...prev, optimisticReaction]);
       }
+      
+      // Close emoji picker
       setIsOpen(false);
+      
+      // Then make the API call
+      if (existingReaction) {
+        await commentsAPI.removeReaction(commentId, emoji);
+      } else {
+        await commentsAPI.addReaction(commentId, emoji);
+      }
     } catch (error) {
       console.error(`Failed to toggle reaction ${emoji} for comment ${commentId}:`, error);
+      
+      // Revert optimistic update on error
+      if (existingReaction) {
+        // Put back the removed reaction
+        setReactions(prev => [...prev, existingReaction]);
+      } else {
+        // Remove the temporarily added reaction
+        setReactions(prev => prev.filter(r => !(r.emoji === emoji && r.userId === currentUserId)));
+      }
     }
   };
 
@@ -199,7 +215,7 @@ export function CommentReactions({
             </TooltipTrigger>
             <TooltipContent>
               <div className="text-xs">
-                {emojiReactions.map((r) => r.user?.name).join(", ")}
+                {emojiReactions.map((r) => r.user?.name || "Unknown").join(", ")}
               </div>
             </TooltipContent>
           </Tooltip>

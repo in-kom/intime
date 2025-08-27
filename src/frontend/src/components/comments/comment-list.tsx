@@ -40,8 +40,6 @@ interface CommentListProps {
 
 export function CommentList({
   taskId,
-  projectId,
-  companyId,
   canComment = true,
   initialComments = [],
   useWebSocket = false,
