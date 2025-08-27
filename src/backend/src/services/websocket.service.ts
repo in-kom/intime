@@ -9,7 +9,10 @@ interface WebSocketMessage {
 
 class WebSocketService {
   private wss: WebSocket.Server;
-  private clients: Map<string, Set<WebSocket>> = new Map();
+  // Map taskId -> Set of clients
+  private taskClients: Map<string, Set<WebSocket>> = new Map();
+  // Map client -> Set of subscribed taskIds
+  private clientTasks: Map<WebSocket, Set<string>> = new Map();
 
   constructor(server: http.Server) {
     this.wss = new WebSocket.Server({ server });
@@ -21,10 +24,9 @@ class WebSocketService {
       // Extract token from URL query parameters
       const url = new URL(req.url || '', `http://${req.headers.host}`);
       const token = url.searchParams.get('token');
-      const taskId = url.searchParams.get('taskId');
 
-      if (!token || !taskId) {
-        ws.close(1008, 'Authentication or taskId required');
+      if (!token) {
+        ws.close(1008, 'Authentication required');
         return;
       }
 
@@ -32,24 +34,27 @@ class WebSocketService {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
         const userId = decoded.id;
-        
-        // Register client connection
-        this.registerClient(taskId, ws);
 
-        // Handle client messages
+        // Initialize subscriptions for this client
+        this.clientTasks.set(ws, new Set());
+
         ws.on('message', (message: string) => {
           try {
-            const parsedMessage = JSON.parse(message) as WebSocketMessage;
-            // Handle message based on type if needed
-            console.log(`Received message from client: ${message}`);
+            const parsedMessage = JSON.parse(message) as { type: string; taskId?: string; payload?: any };
+            // Handle subscription messages
+            if (parsedMessage.type === 'SUBSCRIBE_TASK' && parsedMessage.taskId) {
+              this.subscribeClientToTask(ws, parsedMessage.taskId);
+            } else if (parsedMessage.type === 'UNSUBSCRIBE_TASK' && parsedMessage.taskId) {
+              this.unsubscribeClientFromTask(ws, parsedMessage.taskId);
+            }
+            // ...handle other message types if needed...
           } catch (error) {
             console.error('Failed to parse WebSocket message:', error);
           }
         });
 
-        // Handle client disconnection
         ws.on('close', () => {
-          this.unregisterClient(taskId, ws);
+          this.cleanupClient(ws);
         });
 
       } catch (error) {
@@ -59,32 +64,63 @@ class WebSocketService {
     });
   }
 
-  private registerClient(taskId: string, ws: WebSocket) {
-    if (!this.clients.has(taskId)) {
-      this.clients.set(taskId, new Set());
+  private subscribeClientToTask(ws: WebSocket, taskId: string) {
+    // Add client to task's set
+    if (!this.taskClients.has(taskId)) {
+      this.taskClients.set(taskId, new Set());
     }
-    this.clients.get(taskId)!.add(ws);
-    console.log(`Client connected to task ${taskId}. Total clients for this task: ${this.clients.get(taskId)!.size}`);
+    this.taskClients.get(taskId)!.add(ws);
+
+    // Add task to client's set
+    if (!this.clientTasks.has(ws)) {
+      this.clientTasks.set(ws, new Set());
+    }
+    this.clientTasks.get(ws)!.add(taskId);
+
+    // Optionally log
+    // console.log(`Client subscribed to task ${taskId}`);
   }
 
-  private unregisterClient(taskId: string, ws: WebSocket) {
-    if (this.clients.has(taskId)) {
-      this.clients.get(taskId)!.delete(ws);
-      if (this.clients.get(taskId)!.size === 0) {
-        this.clients.delete(taskId);
+  private unsubscribeClientFromTask(ws: WebSocket, taskId: string) {
+    // Remove client from task's set
+    if (this.taskClients.has(taskId)) {
+      this.taskClients.get(taskId)!.delete(ws);
+      if (this.taskClients.get(taskId)!.size === 0) {
+        this.taskClients.delete(taskId);
       }
-      console.log(`Client disconnected from task ${taskId}`);
     }
+    // Remove task from client's set
+    if (this.clientTasks.has(ws)) {
+      this.clientTasks.get(ws)!.delete(taskId);
+    }
+    // Optionally log
+    // console.log(`Client unsubscribed from task ${taskId}`);
+  }
+
+  private cleanupClient(ws: WebSocket) {
+    // Remove client from all task subscriptions
+    const tasks = this.clientTasks.get(ws);
+    if (tasks) {
+      for (const taskId of tasks) {
+        if (this.taskClients.has(taskId)) {
+          this.taskClients.get(taskId)!.delete(ws);
+          if (this.taskClients.get(taskId)!.size === 0) {
+            this.taskClients.delete(taskId);
+          }
+        }
+      }
+    }
+    this.clientTasks.delete(ws);
+    // Optionally log
+    // console.log('Client disconnected and cleaned up');
   }
 
   public broadcast(taskId: string, type: string, payload: any) {
-    if (!this.clients.has(taskId)) {
+    if (!this.taskClients.has(taskId)) {
       return;
     }
-
     const message = JSON.stringify({ type, payload });
-    const clients = this.clients.get(taskId)!;
-
+    const clients = this.taskClients.get(taskId)!;
     clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(message);
