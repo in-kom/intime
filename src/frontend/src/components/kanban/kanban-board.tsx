@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { 
   DndContext, 
   DragEndEvent,
@@ -13,6 +13,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { KanbanColumn } from "./kanban-column";
 import { TaskCard } from "../tasks/task-card";
 import { tasksAPI } from "@/lib/api";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Task {
   id: string;
@@ -57,6 +58,10 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
   const [isLoading, setIsLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { user } = useAuth();
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsReadyRef = useRef(false);
+  const wsQueueRef = useRef<any[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -65,6 +70,50 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
       },
     })
   );
+
+  // Setup WebSocket connection
+  useEffect(() => {
+    const token = window.localStorage.getItem("token");
+    if (!token) return;
+
+    const ws = new WebSocket(`${import.meta.env.VITE_WS_URL || "ws://localhost:4000"}?token=${token}`);
+    wsRef.current = ws;
+    wsReadyRef.current = false;
+
+    ws.onopen = () => {
+      wsReadyRef.current = true;
+      ws.send(JSON.stringify({ type: "SUBSCRIBE_PROJECT", projectId }));
+      // Flush any queued messages
+      wsQueueRef.current.forEach(msg => ws.send(msg));
+      wsQueueRef.current = [];
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "KANBAN_CARD_MOVED" && msg.payload?.projectId === projectId) {
+          setTasks(msg.payload.tasks);
+        }
+      } catch {}
+    };
+
+    ws.onclose = () => {
+      wsRef.current = null;
+      wsReadyRef.current = false;
+      wsQueueRef.current = [];
+    };
+
+    return () => {
+      // Only send unsubscribe if socket is open
+      const unsubscribeMsg = JSON.stringify({ type: "UNSUBSCRIBE_PROJECT", projectId });
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(unsubscribeMsg);
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        wsQueueRef.current.push(unsubscribeMsg);
+      }
+      ws.close();
+    };
+  }, [projectId]);
 
   useImperativeHandle(ref, () => ({
     refreshTasks: () => {
@@ -145,8 +194,20 @@ export const KanbanBoard = forwardRef(function KanbanBoard({
           task.id === activeTaskId ? { ...task, status: newStatus } : task
         )
       );
-      
       tasksAPI.update(activeTaskId, { ...activeTask, status: newStatus })
+        .then(async () => {
+          const updatedTasks = await tasksAPI.getAll(projectId);
+          const msg = JSON.stringify({
+            type: "KANBAN_CARD_MOVED",
+            payload: { projectId, tasks: updatedTasks.data }
+          });
+          // Only send if socket is open, otherwise queue
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(msg);
+          } else if (wsRef.current && wsRef.current.readyState === WebSocket.CONNECTING) {
+            wsQueueRef.current.push(msg);
+          }
+        })
         .catch((error) => {
           console.error("Failed to update task status", error);
           setTasks((tasks) => [...tasks]);

@@ -13,6 +13,10 @@ class WebSocketService {
   private taskClients: Map<string, Set<WebSocket>> = new Map();
   // Map client -> Set of subscribed taskIds
   private clientTasks: Map<WebSocket, Set<string>> = new Map();
+  // Map projectId -> Set of clients
+  private projectClients: Map<string, Set<WebSocket>> = new Map();
+  // Map client -> Set of subscribed projectIds
+  private clientProjects: Map<WebSocket, Set<string>> = new Map();
 
   constructor(server: http.Server) {
     this.wss = new WebSocket.Server({ server });
@@ -37,15 +41,20 @@ class WebSocketService {
 
         // Initialize subscriptions for this client
         this.clientTasks.set(ws, new Set());
+        this.clientProjects.set(ws, new Set());
 
         ws.on('message', (message: string) => {
           try {
-            const parsedMessage = JSON.parse(message) as { type: string; taskId?: string; payload?: any };
+            const parsedMessage = JSON.parse(message) as { type: string; projectId?: string; taskId?: string; payload?: any };
             // Handle subscription messages
             if (parsedMessage.type === 'SUBSCRIBE_TASK' && parsedMessage.taskId) {
               this.subscribeClientToTask(ws, parsedMessage.taskId);
             } else if (parsedMessage.type === 'UNSUBSCRIBE_TASK' && parsedMessage.taskId) {
               this.unsubscribeClientFromTask(ws, parsedMessage.taskId);
+            } else if (parsedMessage.type === 'SUBSCRIBE_PROJECT' && parsedMessage.projectId) {
+              this.subscribeClientToProject(ws, parsedMessage.projectId);
+            } else if (parsedMessage.type === 'UNSUBSCRIBE_PROJECT' && parsedMessage.projectId) {
+              this.unsubscribeClientFromProject(ws, parsedMessage.projectId);
             }
             // ...handle other message types if needed...
           } catch (error) {
@@ -97,6 +106,39 @@ class WebSocketService {
     // console.log(`Client unsubscribed from task ${taskId}`);
   }
 
+  private subscribeClientToProject(ws: WebSocket, projectId: string) {
+    // Add client to project's set
+    if (!this.projectClients.has(projectId)) {
+      this.projectClients.set(projectId, new Set());
+    }
+    this.projectClients.get(projectId)!.add(ws);
+
+    // Add project to client's set
+    if (!this.clientProjects.has(ws)) {
+      this.clientProjects.set(ws, new Set());
+    }
+    this.clientProjects.get(ws)!.add(projectId);
+
+    // Optionally log
+    // console.log(`Client subscribed to project ${projectId}`);
+  }
+
+  private unsubscribeClientFromProject(ws: WebSocket, projectId: string) {
+    // Remove client from project's set
+    if (this.projectClients.has(projectId)) {
+      this.projectClients.get(projectId)!.delete(ws);
+      if (this.projectClients.get(projectId)!.size === 0) {
+        this.projectClients.delete(projectId);
+      }
+    }
+    // Remove project from client's set
+    if (this.clientProjects.has(ws)) {
+      this.clientProjects.get(ws)!.delete(projectId);
+    }
+    // Optionally log
+    // console.log(`Client unsubscribed from project ${projectId}`);
+  }
+
   private cleanupClient(ws: WebSocket) {
     // Remove client from all task subscriptions
     const tasks = this.clientTasks.get(ws);
@@ -110,7 +152,20 @@ class WebSocketService {
         }
       }
     }
+    // Remove client from all project subscriptions
+    const projects = this.clientProjects.get(ws);
+    if (projects) {
+      for (const projectId of projects) {
+        if (this.projectClients.has(projectId)) {
+          this.projectClients.get(projectId)!.delete(ws);
+          if (this.projectClients.get(projectId)!.size === 0) {
+            this.projectClients.delete(projectId);
+          }
+        }
+      }
+    }
     this.clientTasks.delete(ws);
+    this.clientProjects.delete(ws);
     // Optionally log
     // console.log('Client disconnected and cleaned up');
   }
@@ -121,6 +176,20 @@ class WebSocketService {
     }
     const message = JSON.stringify({ type, payload });
     const clients = this.taskClients.get(taskId)!;
+    clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  }
+
+  // Broadcast to all clients subscribed to a project
+  public broadcastToProject(projectId: string, type: string, payload: any) {
+    if (!this.projectClients.has(projectId)) {
+      return;
+    }
+    const message = JSON.stringify({ type, payload });
+    const clients = this.projectClients.get(projectId)!;
     clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(message);

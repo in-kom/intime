@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient, Status, Priority } from '@prisma/client';
 import { AppError } from '../middleware/error.middleware';
+import { getWebSocketServer } from '../services/websocket.service';
 
 const prisma = new PrismaClient();
 
@@ -282,6 +283,14 @@ export const updateTask = async (req: Request, res: Response) => {
       subtasks: true
     }
   });
+
+  // After updating, broadcast new Kanban board state
+  const allTasks = await prisma.task.findMany({ where: { projectId: updatedTask.projectId } });
+  getWebSocketServer().broadcastToProject(
+    updatedTask.projectId,
+    'KANBAN_CARD_MOVED',
+    { projectId: updatedTask.projectId, tasks: allTasks }
+  );
 
   res.status(200).json(updatedTask);
 };
